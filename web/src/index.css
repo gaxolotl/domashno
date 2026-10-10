@@ -141,9 +141,9 @@
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
   }
-  /* Staggered entrance for a stack of sections. */
+  /* Staggered entrance for a stack of sections (opacity only, no movement). */
   .stagger > * {
-    animation: rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .stagger > *:nth-child(2) { animation-delay: 45ms; }
   .stagger > *:nth-child(3) { animation-delay: 90ms; }
@@ -163,18 +163,17 @@
   }
 }
 
+/* Entrance animations are opacity-only: a 6px slide reads as "the UI moves". */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 .animate-rise {
-  animation: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes pop {
   from {
