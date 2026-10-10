@@ -36,7 +36,7 @@ export default function WeekPage() {
       <EmptyState
         title={m.timetable_empty()}
         hint={m.sch_subtitle()}
-        action={<Button variant="primary" onClick={() => location.assign(`/class/${classId}/schedule`)}>{m.today_setup()}</Button>}
+        action={<Button variant="primary" onClick={() => location.assign(`/class/${classId}/settings`)}>{m.today_setup()}</Button>}
       />
     );
   }

@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -167,6 +168,10 @@ export function Segmented<T extends string>({
 
 /* ---------------------------------- Modal --------------------------------- */
 
+// Module-level counter: multiple (and nested) modals compose correctly, and the
+// page scroll is always restored when the last one closes.
+let openModals = 0;
+
 export function Modal({
   open,
   onClose,
@@ -182,17 +187,21 @@ export function Modal({
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
 }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
+    openModals += 1;
     document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
+    document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+      openModals = Math.max(0, openModals - 1);
+      if (openModals === 0) document.body.style.overflow = '';
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return createPortal(

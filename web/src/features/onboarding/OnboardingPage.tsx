@@ -30,7 +30,7 @@ export default function OnboardingPage() {
     try {
       await ensureName();
       const { class: cls } = await api.createClass(className.trim());
-      nav(`/class/${cls.id}/schedule?welcome=1`, { replace: true });
+      nav(`/class/${cls.id}/settings`, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : m.common_error());
       setBusy(false);

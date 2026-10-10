@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Check, Copy, Crown, KeyRound, Plus, ShieldCheck, ShieldOff, Trash2, UserMinus } from 'lucide-react';
 import { Avatar, Badge, Button, Card, Field, Input, Modal, Segmented, cn, useToast } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';
+import { TimetableSection } from '../schedule/TimetableSection';
 import { api, type Member, type Subject } from '../../lib/api';
 import { useMe } from '../../lib/hooks';
 import { m } from '../../paraglide/messages';
@@ -231,6 +232,11 @@ export default function SettingsPage() {
           {detail.subjects.length === 0 && <p className="py-3 text-center text-sm text-muted">{m.sch_manual()}</p>}
         </ul>
       </Card>
+
+      {/* Timetable (import from Shkolo + editor) */}
+      <section className="panel p-5">
+        <TimetableSection />
+      </section>
 
       {/* Danger zone */}
       <Card className="space-y-3 border-red/30 p-5">

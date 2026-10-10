@@ -126,7 +126,7 @@ export default function TodayPage() {
         <EmptyState
           icon={<Clock className="h-7 w-7" />}
           title={m.today_no_schedule()}
-          action={<Link to={`/class/${classId}/schedule`}><Button variant="primary">{m.today_setup()}</Button></Link>}
+          action={<Link to={`/class/${classId}/settings`}><Button variant="primary">{m.today_setup()}</Button></Link>}
         />
       ) : (
         <>

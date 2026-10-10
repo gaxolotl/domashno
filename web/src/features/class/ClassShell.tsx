@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  CalendarDays, ChevronDown, LayoutList, ListChecks, LogOut, NotebookPen, Plus, Settings, Ticket,
+  CalendarDays, ChevronDown, ListChecks, LogOut, NotebookPen, Plus, Settings, Ticket,
 } from 'lucide-react';
 import { Avatar, Button, PageSkeleton, cn } from '../../components/ui';
 import { Logo } from '../../components/Brand';
@@ -30,7 +30,6 @@ function navItems() {
     { to: '', end: true, label: m.nav_today(), icon: NotebookPen },
     { to: 'week', end: false, label: m.nav_week(), icon: CalendarDays },
     { to: 'homework', end: false, label: m.nav_homework(), icon: ListChecks },
-    { to: 'schedule', end: false, label: m.nav_schedule(), icon: LayoutList },
     { to: 'settings', end: false, label: m.nav_settings(), icon: Settings },
   ];
 }
