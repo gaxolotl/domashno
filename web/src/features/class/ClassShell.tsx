@@ -46,9 +46,6 @@ function ClassSwitcher({ currentId, currentName }: { currentId: string; currentN
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left transition-colors hover:bg-surface2"
       >
-        <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary-soft text-xs font-bold text-primary">
-          {currentName.slice(0, 2)}
-        </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-ink">{currentName}</span>
         </span>

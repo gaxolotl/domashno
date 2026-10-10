@@ -10,10 +10,17 @@ import {
 import { requireAuth, requireMembership, isOwner } from './auth.js';
 import { publicUser } from './oauth.js';
 import { badRequest, notFound, forbidden, isDate, wrap, newId } from './util.js';
+import { rateLimit } from './rateLimit.js';
+import { parseImageParams, ensureThumb, dropThumbs } from './images.js';
 import { sample7a } from './sample7a.js';
 import { parseShkoloPdf } from './importPdf.js';
 
 export const apiRouter = express.Router();
+
+// Abuse guards (per client IP).
+const uploadLimiter = rateLimit({ name: 'upload', windowMs: 10 * 60_000, max: 80 });
+const importLimiter = rateLimit({ name: 'import', windowMs: 10 * 60_000, max: 20 });
+const writeLimiter = rateLimit({ name: 'write', windowMs: 60_000, max: 60 });
 
 /* ------------------------------- serializers ------------------------------- */
 
@@ -177,7 +184,7 @@ apiRouter.get('/classes', requireAuth, (req, res) => {
   res.json({ classes: classes.listForUser(req.user.id).map((c) => ({ ...c, can_manage: c.role === 'owner' })) });
 });
 
-apiRouter.post('/classes', requireAuth, (req, res) => {
+apiRouter.post('/classes', requireAuth, writeLimiter, (req, res) => {
   const name = String(req.body?.name || '').trim();
   if (!name) return badRequest(res, 'Class name is required');
   if (name.length > 60) return badRequest(res, 'Class name is too long');
@@ -334,7 +341,7 @@ apiRouter.post('/classes/:id/import/sample', requireAuth, requireMembership('id'
   res.json({ draft: { name: sample7a.name, note: sample7a.note, slots: sample7a.slots } });
 });
 
-apiRouter.post('/classes/:id/import/pdf', requireAuth, requireMembership('id'), pdfUpload.single('file'), wrap(async (req, res) => {
+apiRouter.post('/classes/:id/import/pdf', requireAuth, requireMembership('id'), importLimiter, pdfUpload.single('file'), wrap(async (req, res) => {
   if (!req.file) return badRequest(res, 'No PDF uploaded');
   try {
     const draft = await parseShkoloPdf(req.file.buffer);
@@ -356,7 +363,7 @@ apiRouter.get('/classes/:id/homework', requireAuth, requireMembership('id'), (re
   res.json({ homework: list.map(homeworkView) });
 });
 
-apiRouter.post('/classes/:id/homework', requireAuth, requireMembership('id'), (req, res) => {
+apiRouter.post('/classes/:id/homework', requireAuth, requireMembership('id'), writeLimiter, (req, res) => {
   const title = String(req.body?.title || '').trim();
   const due = String(req.body?.due_date || '');
   const subjectId = req.body?.subject_id ? String(req.body.subject_id) : null;
@@ -431,7 +438,7 @@ apiRouter.delete('/homework/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-apiRouter.post('/homework/:id/attachments', requireAuth, attachmentUpload.array('files', 10), (req, res) => {
+apiRouter.post('/homework/:id/attachments', requireAuth, uploadLimiter, attachmentUpload.array('files', 10), (req, res) => {
   const hw = homework.raw(req.params.id);
   if (!hw) return notFound(res, 'Homework not found');
   const membership = members.get(hw.class_id, req.user.id);
@@ -460,19 +467,38 @@ apiRouter.delete('/attachments/:id', requireAuth, (req, res) => {
     || canPostFor(hw.class_id, hw.subject_id, req.user.id);
   if (!allowed) return forbidden(res, 'You cannot remove this file');
   try { fs.unlinkSync(path.join(UPLOAD_DIR, att.stored_name)); } catch { /* ignore */ }
+  dropThumbs(att.stored_name);
   attachments.remove(att.id);
   res.json({ ok: true });
 });
 
-apiRouter.get('/files/:id', requireAuth, (req, res) => {
+apiRouter.get('/files/:id', requireAuth, wrap(async (req, res) => {
   const att = attachments.byId(req.params.id);
   if (!att) return notFound(res, 'File not found');
   const hw = homework.raw(att.homework_id);
   if (!members.get(hw.class_id, req.user.id)) return forbidden(res, 'Not a member');
   const filePath = path.join(UPLOAD_DIR, att.stored_name);
   if (!fs.existsSync(filePath)) return notFound(res, 'File is missing');
+
+  const isImage = String(att.mime || '').startsWith('image/');
+  const params = req.query.download ? null : parseImageParams(req.query);
+
+  // Let the browser cache thumbnails aggressively (they are per-user, not public).
+  res.setHeader('Cache-Control', 'private, max-age=604800, immutable');
+
+  if (isImage && params) {
+    try {
+      const thumb = await ensureThumb(filePath, params);
+      res.setHeader('Content-Type', 'image/webp');
+      res.setHeader('Vary', 'Accept');
+      return fs.createReadStream(thumb).pipe(res);
+    } catch (err) {
+      console.warn('image resize failed, serving original:', err.message);
+    }
+  }
+
   const disposition = req.query.download ? 'attachment' : 'inline';
   res.setHeader('Content-Type', att.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', `${disposition}; filename*=UTF-8''${encodeURIComponent(att.original_name)}`);
-  fs.createReadStream(filePath).pipe(res);
-});
+  return fs.createReadStream(filePath).pipe(res);
+}));

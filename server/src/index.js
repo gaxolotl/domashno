@@ -9,6 +9,7 @@ import { attachUser } from './auth.js';
 import { authRoutes } from './oauth.js';
 import { emailAuthRoutes } from './emailAuth.js';
 import { apiRouter } from './api.js';
+import { rateLimit } from './rateLimit.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -16,6 +17,9 @@ app.set('trust proxy', 1); // we sit behind Caddy/nginx which sets X-Forwarded-F
 app.use(express.json({ limit: '3mb' }));
 app.use(cookieParser());
 app.use(attachUser);
+
+// Coarse per-IP ceiling for the whole API (individual routes add their own).
+app.use('/api', rateLimit({ name: 'api', windowMs: 10 * 60_000, max: 2000 }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', emailAuthRoutes);

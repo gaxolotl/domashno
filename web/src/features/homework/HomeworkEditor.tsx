@@ -15,7 +15,15 @@ export function AttachmentGrid({ items, onDelete }: { items: Attachment[]; onDel
           <li key={a.id} className="group relative overflow-hidden rounded-xl border border-line bg-surface2">
             <a href={a.url} target="_blank" rel="noreferrer" className="block">
               {isImage ? (
-                <img src={a.url} alt={a.name} className="h-28 w-full object-cover" loading="lazy" />
+                <img
+                  src={`${a.url}?w=480`}
+                  srcSet={`${a.url}?w=320 320w, ${a.url}?w=480 480w, ${a.url}?w=800 800w`}
+                  sizes="(max-width: 640px) 45vw, 240px"
+                  alt={a.name}
+                  className="h-28 w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div className="flex h-28 flex-col items-center justify-center gap-2 px-2 text-center">
                   <Paperclip className="h-5 w-5 text-muted" />

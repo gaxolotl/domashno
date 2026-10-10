@@ -17,7 +17,7 @@ const num = (v, d) => {
   return Number.isFinite(n) ? n : d;
 };
 
-export const DATA_DIR = path.join(SERVER_DIR, 'data');
+export const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(SERVER_DIR, 'data');
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 export const DB_PATH = path.join(DATA_DIR, 'domashno.db');
 export const WEB_DIST = path.join(ROOT_DIR, 'web', 'dist');
@@ -58,6 +58,9 @@ export const EMAIL = {
 /** resend → API key, else smtp → SMTP host, else console (dev: code printed to the log). */
 export const EMAIL_PROVIDER = EMAIL.resendApiKey ? 'resend' : EMAIL.smtp.host ? 'smtp' : 'console';
 export const VERIFICATION_TTL_MIN = 10;
+
+/** Hard cap on verification emails sent per hour (protects your provider quota). */
+export const EMAIL_MAX_PER_HOUR = num(process.env.EMAIL_MAX_PER_HOUR, 300);
 
 export function oauthEnabled(provider) {
   const p = OAUTH[provider];

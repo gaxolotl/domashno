@@ -1,13 +1,28 @@
 import crypto from 'node:crypto';
 import express from 'express';
-import { SERVER_URL, APP_URL, VERIFICATION_TTL_MIN, EMAIL_PROVIDER, IS_PROD } from './env.js';
+import { SERVER_URL, APP_URL, VERIFICATION_TTL_MIN, EMAIL_PROVIDER, EMAIL_MAX_PER_HOUR, IS_PROD } from './env.js';
 import { users, sessions, emailTokens } from './db.js';
 import { setSessionCookie } from './auth.js';
 import { sendVerificationEmail } from './email.js';
 import { badRequest, wrap } from './util.js';
+import { rateLimit } from './rateLimit.js';
 import { publicUser } from './oauth.js';
 
 export const emailAuthRoutes = express.Router();
+
+// Per-IP throttles. (Plus a per-address limit and an hourly global budget below.)
+const startByIp = rateLimit({ name: 'email-start', windowMs: 15 * 60_000, max: 8 });
+const verifyByIp = rateLimit({ name: 'email-verify', windowMs: 15 * 60_000, max: 40 });
+
+// Rolling one-hour cap on how many verification emails we send at all.
+let hourBudget = { start: Date.now(), count: 0 };
+function consumeEmailBudget() {
+  const now = Date.now();
+  if (now - hourBudget.start > 3_600_000) hourBudget = { start: now, count: 0 };
+  if (hourBudget.count >= EMAIL_MAX_PER_HOUR) return false;
+  hourBudget.count += 1;
+  return true;
+}
 
 const sha = (v) => crypto.createHash('sha256').update(String(v)).digest('hex');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -35,15 +50,18 @@ function startSession(res, user) {
 const CODE_RE = /^\d{6}$/;
 
 /** Send a 6-digit code (and a one-tap link) to the address. */
-emailAuthRoutes.post('/email/start', wrap(async (req, res) => {
+emailAuthRoutes.post('/email/start', startByIp, wrap(async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const name = String(req.body?.name || '').trim().slice(0, 80);
   const locale = req.body?.locale === 'en' ? 'en' : 'bg';
   if (!EMAIL_RE.test(email)) return badRequest(res, 'invalid_email');
 
   emailTokens.purge();
+  // per-address limit
   const since = new Date(Date.now() - 15 * 60_000).toISOString();
   if (emailTokens.recentCount(email, since) >= 5) return res.status(429).json({ error: 'too_many_requests' });
+  // global hourly budget
+  if (!consumeEmailBudget()) return res.status(429).json({ error: 'too_many_requests' });
 
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
   const secret = crypto.randomBytes(24).toString('base64url');
@@ -76,7 +94,7 @@ emailAuthRoutes.post('/email/start', wrap(async (req, res) => {
 }));
 
 /** Confirm the code and, only now, open a session. */
-emailAuthRoutes.post('/email/verify', wrap(async (req, res) => {
+emailAuthRoutes.post('/email/verify', verifyByIp, wrap(async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const code = String(req.body?.code || '').replace(/\D/g, '');
   if (!EMAIL_RE.test(email) || !CODE_RE.test(code)) return badRequest(res, 'invalid_code');

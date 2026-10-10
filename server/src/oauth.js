@@ -6,9 +6,13 @@ import { users, sessions } from './db.js';
 import {
   signValue, verifyValue, setSessionCookie, clearSessionCookie,
 } from './auth.js';
+import { rateLimit } from './rateLimit.js';
 import { badRequest, wrap } from './util.js';
 
 const router = express.Router();
+
+const oauthStartLimit = rateLimit({ name: 'oauth-start', windowMs: 15 * 60_000, max: 40 });
+const devLoginLimit = rateLimit({ name: 'dev-login', windowMs: 15 * 60_000, max: 10 });
 
 const STATE_COOKIE = 'domashno_oauth';
 const stateCookieOptions = () => ({
@@ -82,7 +86,7 @@ router.get('/providers', (_req, res) => {
   });
 });
 
-router.get('/:provider/start', (req, res) => {
+router.get('/:provider/start', oauthStartLimit, (req, res) => {
   const provider = req.params.provider;
   const client = providers()[provider];
   if (!client || !['google', 'github'].includes(provider)) {
@@ -135,7 +139,7 @@ router.get('/:provider/callback', wrap(async (req, res) => {
 }));
 
 /** Dev login: create or reuse a user by name + email. Only for local testing. */
-router.post('/dev', wrap(async (req, res) => {
+router.post('/dev', devLoginLimit, wrap(async (req, res) => {
   if (!ENABLE_DEV_LOGIN) return res.status(404).json({ error: 'Not available' });
   const name = String(req.body?.name || '').trim();
   const email = String(req.body?.email || '').trim().toLowerCase() || null;
