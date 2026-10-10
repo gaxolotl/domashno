@@ -42,7 +42,7 @@ export function AttachmentGrid({ items, onDelete }: { items: Attachment[]; onDel
             {onDelete && (
               <button
                 onClick={() => onDelete(a)}
-                className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-lg bg-ink/60 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus:opacity-100"
+                className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-lg bg-black/60 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus:opacity-100"
                 aria-label={m.common_delete()}
               >
                 <Trash2 className="h-3.5 w-3.5" />

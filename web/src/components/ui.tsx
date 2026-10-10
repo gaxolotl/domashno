@@ -208,7 +208,7 @@ export function Modal({
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center sm:p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="absolute inset-0 bg-scrim backdrop-blur-[2px]" onClick={onClose} />
       <div
         className={cn(
           // full screen on phones, centred dialog on larger screens

@@ -18,6 +18,7 @@
   --blue: #3e7cb8;
   --red: #d6482f;
   --ring: #1e7a4c;
+  --scrim: rgba(18, 30, 24, 0.45);
   --shadow: 20 35 28;
 }
 
@@ -37,6 +38,7 @@
   --blue: #7fb3e0;
   --red: #f0715a;
   --ring: #57c68c;
+  --scrim: rgba(0, 0, 0, 0.62);
   --shadow: 0 0 0;
 }
 
@@ -55,6 +57,7 @@
   --color-blue: var(--blue);
   --color-red: var(--red);
   --color-ring: var(--ring);
+  --color-scrim: var(--scrim);
 
   --font-display: 'Golos Text', system-ui, sans-serif;
   --font-sans: 'Golos Text', system-ui, -apple-system, sans-serif;
