@@ -168,6 +168,7 @@
   "pwa_never": "Don't show again",
 
   "admin_title": "Admin panel",
+  "admin_short": "Admin",
   "admin_tab_stats": "Stats",
   "admin_tab_users": "Users",
   "admin_tab_classes": "Classes",

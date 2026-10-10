@@ -25,7 +25,7 @@ export function useClassCtx() {
   return ctx;
 }
 
-interface NavItem { to: string; end: boolean; label: string; icon: LucideIcon; href?: string }
+interface NavItem { to: string; end: boolean; label: string; short?: string; icon: LucideIcon; href?: string }
 
 function navItems(isAdmin: boolean) {
   const items: NavItem[] = [
@@ -34,7 +34,7 @@ function navItems(isAdmin: boolean) {
     { to: 'homework', end: false, label: m.nav_homework(), icon: ListChecks },
     { to: 'settings', end: false, label: m.nav_settings(), icon: Settings },
   ];
-  if (isAdmin) items.push({ to: 'admin', end: false, label: m.admin_title(), icon: ShieldCheck, href: '/admin' });
+  if (isAdmin) items.push({ to: 'admin', end: false, label: m.admin_title(), short: m.admin_short(), icon: ShieldCheck, href: '/admin' });
   return items;
 }
 
@@ -141,21 +141,21 @@ function ShellLayout({ classId, name, user, children }: { classId: string; name:
         <main className="min-w-0 flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10 lg:pt-8">{children}</main>
       </div>
 
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg lg:hidden">
-        <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-1.5">
+      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 overflow-hidden border-t border-line bg-bg lg:hidden">
+        <div className="mx-auto flex max-w-md items-stretch justify-around px-1 pt-1.5">
           {items.map((item) => (
             <NavLink
               key={item.to || 'index'}
               to={toHref(item)}
               end={item.end}
-              className={({ isActive }) => cn('flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-medium transition-colors', isActive ? 'text-primary' : 'text-muted')}
+              className={({ isActive }) => cn('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[11px] font-medium transition-colors', isActive ? 'text-primary' : 'text-muted')}
             >
               {({ isActive }) => (
                 <>
                   <span className={cn('grid h-8 w-full place-items-center rounded-lg', isActive && 'bg-primary-soft')}>
                     <item.icon className="h-5 w-5" />
                   </span>
-                  {item.label}
+                  <span className="w-full truncate text-center">{item.short ?? item.label}</span>
                 </>
               )}
             </NavLink>

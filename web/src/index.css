@@ -71,6 +71,9 @@
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    /* Always reserve the scrollbar so pages can never shift sideways when one
+       appears/disappears (older Safari/Firefox ignore scrollbar-gutter). */
+    overflow-y: scroll;
     scrollbar-gutter: stable;
     touch-action: pan-x pan-y; /* block pinch-zoom */
     /* paint the root canvas so the overscroll / system-bar area is never white */

@@ -230,10 +230,10 @@ export function TimetableSection() {
                             </button>
                           </div>
                           <div className="mt-2 grid grid-cols-2 gap-2">
-                            <Input value={row.teacher} onChange={(e) => update(index, { teacher: e.target.value })} placeholder={m.sch_teacher()} className="h-8" />
-                            <Input value={row.room} onChange={(e) => update(index, { room: e.target.value })} placeholder={m.sch_room()} className="h-8" />
-                            <Input type="time" value={row.start} onChange={(e) => update(index, { start: e.target.value })} className="h-8 tnum" />
-                            <Input type="time" value={row.end} onChange={(e) => update(index, { end: e.target.value })} className="h-8 tnum" />
+                            <Input value={row.teacher} onChange={(e) => update(index, { teacher: e.target.value })} placeholder={m.sch_teacher()} className="h-8 min-w-0" />
+                            <Input value={row.room} onChange={(e) => update(index, { room: e.target.value })} placeholder={m.sch_room()} className="h-8 min-w-0" />
+                            <Input type="time" value={row.start} onChange={(e) => update(index, { start: e.target.value })} className="h-8 min-w-0 tnum" />
+                            <Input type="time" value={row.end} onChange={(e) => update(index, { end: e.target.value })} className="h-8 min-w-0 tnum" />
                           </div>
                         </div>
                       );
