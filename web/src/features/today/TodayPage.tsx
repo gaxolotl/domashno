@@ -128,10 +128,12 @@ export default function TodayPage() {
           title={m.today_no_schedule()}
           action={<Link to={`/class/${classId}/settings`}><Button variant="primary">{m.today_setup()}</Button></Link>}
         />
+      ) : lessons.length === 0 ? (
+        <EmptyState icon={<Clock className="h-7 w-7" />} title={m.today_no_school()} />
       ) : (
         <>
           {/* Now / previous / next */}
-          {focus ? (
+          {focus && (
             <Card className="overflow-hidden">
               <div className="flex items-stretch">
                 <span className="w-1.5 shrink-0" style={{ backgroundColor: colorOf(focus) }} />
@@ -152,8 +154,6 @@ export default function TodayPage() {
                 </div>
               </div>
             </Card>
-          ) : (
-            <EmptyState icon={<Clock className="h-7 w-7" />} title={lessons.length ? m.today_no_school() : m.today_no_school()} />
           )}
 
           {timed.length > 0 && (
@@ -165,10 +165,7 @@ export default function TodayPage() {
           )}
 
           {/* Full day */}
-          {lessons.length === 0 ? (
-            <EmptyState icon={<Clock className="h-7 w-7" />} title={m.today_no_school()} />
-          ) : (
-            <section className="space-y-2">
+          <section className="space-y-2">
               {lessons.map((lesson, li) => {
                 const hw = lesson.subject_id ? bySubject.get(lesson.subject_id) ?? [] : [];
                 const color = colorOf(lesson);
@@ -209,7 +206,6 @@ export default function TodayPage() {
                 );
               })}
             </section>
-          )}
         </>
       )}
 
