@@ -5,9 +5,9 @@ import multer from 'multer';
 import { UPLOAD_DIR, MAX_UPLOAD_MB } from './env.js';
 import {
   users, classes, members, subjects, slots, homework, attachments,
-  subjectPerms, canPostFor, SUBJECT_COLORS,
+  subjectPerms, canPostFor, parseFeatures, loginEvents, SUBJECT_COLORS,
 } from './db.js';
-import { requireAuth, requireMembership, isOwner } from './auth.js';
+import { requireAuth, requireMembership, isOwner, isAdmin } from './auth.js';
 import { publicUser } from './oauth.js';
 import { badRequest, notFound, forbidden, isDate, wrap, newId, sanitizeText } from './util.js';
 import { rateLimit } from './rateLimit.js';
@@ -77,10 +77,15 @@ function classView(cls, role) {
     invite_code: cls.invite_code,
     post_policy: cls.post_policy,
     source_url: cls.source_url || null,
+    features: parseFeatures(cls),
     created_at: cls.created_at,
     can_manage: role === 'owner',
   };
 }
+
+/** Per-class feature flags (set by an admin). */
+const featuresOf = (classId) => parseFeatures(classes.byId(classId));
+const classReadOnly = (classId, user) => featuresOf(classId).read_only && !isAdmin(user);
 
 /* ------------------------------ shared logic ------------------------------- */
 
@@ -136,6 +141,8 @@ const ALLOWED_EXT = new Set([
   '.zip', '.mp3', '.m4a', '.mp4', '.mov', '.webm',
 ]);
 
+const HARD_MAX_MB = Math.max(MAX_UPLOAD_MB, 200); // per-class features may raise the limit
+
 const attachmentUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -144,7 +151,7 @@ const attachmentUpload = multer({
       cb(null, `${newId()}${ALLOWED_EXT.has(ext) ? ext : ''}`);
     },
   }),
-  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024, files: 10 },
+  limits: { fileSize: HARD_MAX_MB * 1024 * 1024, files: 10 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const ok = ALLOWED_EXT.has(ext) || /^(image|video|audio)\//.test(file.mimetype);
@@ -178,6 +185,19 @@ apiRouter.patch('/me', requireAuth, (req, res) => {
   const name = String(req.body?.name || '').trim();
   if (!name) return badRequest(res, 'Name is required');
   res.json({ user: publicUser(users.rename(req.user.id, name)) });
+});
+
+/** Client-side fingerprint bits (timezone/screen/platform), sent after login. */
+apiRouter.post('/me/fingerprint', requireAuth, (req, res) => {
+  const s = (v, n) => (typeof v === 'string' ? sanitizeText(v).slice(0, n) || null : null);
+  loginEvents.attachClient({
+    userId: req.user.id,
+    timezone: s(req.body?.timezone, 60),
+    locale: s(req.body?.locale, 30),
+    screen: s(req.body?.screen, 20),
+    platform: s(req.body?.platform, 60),
+  });
+  res.json({ ok: true });
 });
 
 /* --------------------------------- classes --------------------------------- */
@@ -366,6 +386,7 @@ apiRouter.get('/classes/:id/homework', requireAuth, requireMembership('id'), (re
 });
 
 apiRouter.post('/classes/:id/homework', requireAuth, requireMembership('id'), writeLimiter, (req, res) => {
+  if (classReadOnly(req.classId, req.user)) return forbidden(res, 'class_read_only');
   const title = String(req.body?.title || '').trim();
   const due = String(req.body?.due_date || '');
   const subjectId = req.body?.subject_id ? String(req.body.subject_id) : null;
@@ -402,6 +423,7 @@ function homeworkForWrite(req, res) {
   if (!hw) { notFound(res, 'Homework not found'); return null; }
   const membership = members.get(hw.class_id, req.user.id);
   if (!membership) { forbidden(res, 'Not a member'); return null; }
+  if (classReadOnly(hw.class_id, req.user)) { forbidden(res, 'class_read_only'); return null; }
   const allowed = isOwnerSynthetic(membership) || hw.created_by === req.user.id
     || canPostFor(hw.class_id, hw.subject_id, req.user.id);
   if (!allowed) { forbidden(res, 'You cannot edit this homework'); return null; }
@@ -459,7 +481,16 @@ apiRouter.post('/homework/:id/attachments', requireAuth, uploadLimiter, attachme
   const allowed = isOwnerSynthetic(membership) || hw.created_by === req.user.id
     || canPostFor(hw.class_id, hw.subject_id, req.user.id);
   if (!allowed) return forbidden(res, 'You cannot add files to this homework');
+  if (classReadOnly(hw.class_id, req.user)) return forbidden(res, 'class_read_only');
+
   const files = req.files || [];
+  // per-class upload ceiling (admins can raise it via class features)
+  const effectiveMb = featuresOf(hw.class_id).upload_mb ?? MAX_UPLOAD_MB;
+  if (files.some((f) => f.size > effectiveMb * 1024 * 1024)) {
+    for (const f of files) { try { fs.unlinkSync(path.join(UPLOAD_DIR, f.filename)); } catch { /* ignore */ } }
+    return res.status(413).json({ error: 'file_too_large' });
+  }
+
   const created = files.map((f) => attachments.create({
     homeworkId: hw.id,
     storedName: f.filename,
@@ -479,6 +510,7 @@ apiRouter.delete('/attachments/:id', requireAuth, (req, res) => {
   const allowed = isOwnerSynthetic(membership) || hw.created_by === req.user.id
     || canPostFor(hw.class_id, hw.subject_id, req.user.id);
   if (!allowed) return forbidden(res, 'You cannot remove this file');
+  if (classReadOnly(hw.class_id, req.user)) return forbidden(res, 'class_read_only');
   try { fs.unlinkSync(path.join(UPLOAD_DIR, att.stored_name)); } catch { /* ignore */ }
   dropThumbs(att.stored_name);
   attachments.remove(att.id);

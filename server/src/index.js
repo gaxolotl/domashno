@@ -9,6 +9,7 @@ import { attachUser } from './auth.js';
 import { authRoutes } from './oauth.js';
 import { emailAuthRoutes } from './emailAuth.js';
 import { apiRouter } from './api.js';
+import { adminRoutes } from './admin.js';
 import { rateLimit } from './rateLimit.js';
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api', rateLimit({ name: 'api', windowMs: 10 * 60_000, max: 2000 }));
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', emailAuthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api', apiRouter);
 
 // Serve the built PWA when it exists (production / `npm run build`).

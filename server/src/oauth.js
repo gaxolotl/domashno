@@ -4,7 +4,7 @@ import { Google, GitHub } from 'arctic';
 import { OAUTH, IS_PROD, callbackUrl, oauthEnabled, ENABLE_DEV_LOGIN } from './env.js';
 import { users, sessions } from './db.js';
 import {
-  signValue, verifyValue, setSessionCookie, clearSessionCookie,
+  signValue, verifyValue, setSessionCookie, clearSessionCookie, startLogin, isAdmin,
 } from './auth.js';
 import { rateLimit } from './rateLimit.js';
 import { badRequest, wrap } from './util.js';
@@ -134,8 +134,8 @@ router.get('/:provider/callback', wrap(async (req, res) => {
     : await githubProfile(accessToken);
 
   const user = upsertUser({ provider, ...profile });
-  const session = sessions.create(user.id);
-  setSessionCookie(res, session.id, session.expires);
+  if (user.banned_at) return res.redirect(`${envAppUrl()}/login?error=banned`);
+  startLogin(req, res, user.id);
   res.redirect(`${envAppUrl()}/`);
 }));
 
@@ -152,8 +152,8 @@ router.post('/dev', devLoginLimit, wrap(async (req, res) => {
   } else {
     user = users.create({ name, email, verified: true });
   }
-  const session = sessions.create(user.id);
-  setSessionCookie(res, session.id, session.expires);
+  if (user.banned_at) return res.status(403).json({ error: 'banned' });
+  startLogin(req, res, user.id);
   res.json({ user: publicUser(user) });
 }));
 
@@ -172,6 +172,7 @@ export function publicUser(user) {
     email: user.email,
     email_verified: Boolean(user.email_verified),
     avatar_url: user.avatar_url,
+    is_admin: isAdmin(user),
   };
 }
 

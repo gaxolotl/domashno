@@ -96,6 +96,7 @@ APP_URL=https://YOUR_DOMAIN
 SERVER_URL=https://YOUR_DOMAIN
 SESSION_SECRET=...            # see below
 ENABLE_DEV_LOGIN=0
+ADMIN_EMAIL=you@YOUR_DOMAIN   # whoever signs in with this email can open /admin
 EMAIL_FROM="Домашно <noreply@YOUR_DOMAIN>"
 RESEND_API_KEY=re_xxxxxxxx    # for email sign-in
 GOOGLE_CLIENT_ID=...          # optional

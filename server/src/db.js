@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT,
   email_verified INTEGER NOT NULL DEFAULT 0,
   avatar_url TEXT,
+  banned_at TEXT,
+  ban_reason TEXT,
+  last_seen_at TEXT,
   created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
@@ -44,6 +47,7 @@ CREATE TABLE IF NOT EXISTS classes (
   invite_code TEXT NOT NULL UNIQUE,
   post_policy TEXT NOT NULL DEFAULT 'everyone',
   source_url TEXT,
+  features TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -125,6 +129,20 @@ CREATE TABLE IF NOT EXISTS email_tokens (
   consumed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_email_tokens_email ON email_tokens(email);
+
+CREATE TABLE IF NOT EXISTS login_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ip TEXT,
+  user_agent TEXT,
+  accept_language TEXT,
+  timezone TEXT,
+  locale TEXT,
+  screen TEXT,
+  platform TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_login_events_user ON login_events(user_id, created_at);
 `;
 
 db.exec(SCHEMA);
@@ -138,10 +156,30 @@ const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.na
 if (!userColumns.includes('email_verified')) {
   db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
 }
+if (!userColumns.includes('banned_at')) db.exec('ALTER TABLE users ADD COLUMN banned_at TEXT');
+if (!userColumns.includes('ban_reason')) db.exec('ALTER TABLE users ADD COLUMN ban_reason TEXT');
+if (!userColumns.includes('last_seen_at')) db.exec('ALTER TABLE users ADD COLUMN last_seen_at TEXT');
+if (!classColumns.includes('features')) db.exec('ALTER TABLE classes ADD COLUMN features TEXT');
 const hwColumns = db.prepare('PRAGMA table_info(homework)').all().map((c) => c.name);
 if (!hwColumns.includes('due_period')) {
   db.exec('ALTER TABLE homework ADD COLUMN due_period INTEGER');
 }
+
+/* ------------------------ per-class feature flags -------------------------- */
+
+export const DEFAULT_FEATURES = { upload_mb: null, read_only: false, featured: false, official: false };
+
+export function parseFeatures(row) {
+  if (!row) return { ...DEFAULT_FEATURES };
+  try {
+    const raw = typeof row === 'string' ? row : row.features;
+    return { ...DEFAULT_FEATURES, ...(raw ? JSON.parse(raw) : {}) };
+  } catch {
+    return { ...DEFAULT_FEATURES };
+  }
+}
+
+export const serializeFeatures = (f) => JSON.stringify({ ...DEFAULT_FEATURES, ...(f || {}) });
 
 const now = () => new Date().toISOString();
 
@@ -422,3 +460,147 @@ export function canPostFor(classId, subjectId, userId) {
   if (subjectId && subjectPerms.has(subjectId, userId)) return true;
   return false;
 }
+
+/* ------------------------------ login events ------------------------------ */
+
+const FIFTEEN_MIN = 15 * 60_000;
+
+export const loginEvents = {
+  add: ({ userId, ip, userAgent, acceptLanguage }) => {
+    db.prepare(`INSERT INTO login_events (id,user_id,ip,user_agent,accept_language,created_at)
+      VALUES (?,?,?,?,?,?)`)
+      .run(newId(), userId, ip ?? null, userAgent ?? null, acceptLanguage ?? null, now());
+  },
+  /** Fill in the client-side bits (timezone, screen…) on the newest pending event. */
+  attachClient: ({ userId, timezone, locale, screen, platform }) => {
+    const since = new Date(Date.now() - FIFTEEN_MIN).toISOString();
+    const row = db.prepare(
+      'SELECT id FROM login_events WHERE user_id = ? AND timezone IS NULL AND created_at >= ? ORDER BY created_at DESC LIMIT 1',
+    ).get(userId, since);
+    if (row) {
+      db.prepare('UPDATE login_events SET timezone = ?, locale = ?, screen = ?, platform = ? WHERE id = ?')
+        .run(timezone ?? null, locale ?? null, screen ?? null, platform ?? null, row.id);
+      return;
+    }
+    db.prepare(`INSERT INTO login_events (id,user_id,timezone,locale,screen,platform,created_at)
+      VALUES (?,?,?,?,?,?,?)`)
+      .run(newId(), userId, timezone ?? null, locale ?? null, screen ?? null, platform ?? null, now());
+  },
+  forUser: (userId, limit = 25) =>
+    db.prepare('SELECT * FROM login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').all(userId, limit),
+  recent: (limit = 60) =>
+    db.prepare(`
+      SELECT e.*, u.name AS user_name, u.email AS user_email
+      FROM login_events e JOIN users u ON u.id = e.user_id
+      ORDER BY e.created_at DESC LIMIT ?
+    `).all(limit),
+  distinctIpsForUser: (userId) =>
+    db.prepare('SELECT ip, COUNT(*) n, MAX(created_at) last FROM login_events WHERE user_id = ? AND ip IS NOT NULL GROUP BY ip ORDER BY last DESC').all(userId),
+};
+
+/* --------------------------------- admin ---------------------------------- */
+
+export const admin = {
+  setBanned: (id, banned, reason = null) => {
+    db.prepare('UPDATE users SET banned_at = ?, ban_reason = ? WHERE id = ?')
+      .run(banned ? now() : null, banned ? (reason || null) : null, id);
+    return users.byId(id);
+  },
+  setEmail: (id, email) => {
+    db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email || null, id);
+    return users.byId(id);
+  },
+  setVerified: (id, verified) => {
+    db.prepare('UPDATE users SET email_verified = ? WHERE id = ?').run(verified ? 1 : 0, id);
+    return users.byId(id);
+  },
+  touchLastSeen: (id) => db.prepare('UPDATE users SET last_seen_at = ? WHERE id = ?').run(now(), id),
+  removeUser: (id) => db.prepare('DELETE FROM users WHERE id = ?').run(id),
+  revokeSessions: (userId) => db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId).changes,
+  setClassFeatures: (id, features) =>
+    db.prepare('UPDATE classes SET features = ? WHERE id = ?').run(serializeFeatures(features), id),
+};
+
+export const stats = () => {
+  const one = (sql, ...args) => db.prepare(sql).get(...args).n;
+  const pct = (d) => new Date(Date.now() - d * 864e5).toISOString();
+  const hours = (h) => new Date(Date.now() - h * 3600_000).toISOString();
+  return {
+    users: one('SELECT COUNT(*) n FROM users'),
+    verified: one('SELECT COUNT(*) n FROM users WHERE email_verified = 1'),
+    banned: one('SELECT COUNT(*) n FROM users WHERE banned_at IS NOT NULL'),
+    classes: one('SELECT COUNT(*) n FROM classes'),
+    subjects: one('SELECT COUNT(*) n FROM subjects'),
+    slots: one('SELECT COUNT(*) n FROM slots'),
+    homework: one('SELECT COUNT(*) n FROM homework'),
+    attachments: one('SELECT COUNT(*) n FROM attachments'),
+    storageBytes: db.prepare('SELECT COALESCE(SUM(size),0) n FROM attachments').get().n,
+    activeSessions: one('SELECT COUNT(*) n FROM sessions WHERE expires_at > ?', now()),
+    newUsers7: one('SELECT COUNT(*) n FROM users WHERE created_at >= ?', pct(7)),
+    newUsers30: one('SELECT COUNT(*) n FROM users WHERE created_at >= ?', pct(30)),
+    homework7: one('SELECT COUNT(*) n FROM homework WHERE created_at >= ?', pct(7)),
+    logins24: one('SELECT COUNT(*) n FROM login_events WHERE created_at >= ?', hours(24)),
+    providers: db.prepare('SELECT provider, COUNT(*) n FROM identities GROUP BY provider').all(),
+    topClasses: db.prepare(`
+      SELECT c.id, c.name, u.name AS owner,
+        (SELECT COUNT(*) FROM members m WHERE m.class_id = c.id) AS members,
+        (SELECT COUNT(*) FROM homework h WHERE h.class_id = c.id) AS homework
+      FROM classes c JOIN users u ON u.id = c.owner_id
+      ORDER BY members DESC, homework DESC LIMIT 8
+    `).all(),
+    recentUsers: db.prepare(`
+      SELECT u.id, u.name, u.email, u.email_verified, u.banned_at, u.created_at,
+        (SELECT COUNT(*) FROM members m WHERE m.user_id = u.id) AS classes
+      FROM users u ORDER BY u.created_at DESC LIMIT 8
+    `).all(),
+  };
+};
+
+export const adminUsers = {
+  list: ({ q = '', filter = 'all', limit = 50, offset = 0 }) => {
+    const where = [];
+    const args = [];
+    if (q) { where.push('(lower(name) LIKE ? OR lower(email) LIKE ?)'); args.push(`%${q.toLowerCase()}%`, `%${q.toLowerCase()}%`); }
+    if (filter === 'banned') where.push('banned_at IS NOT NULL');
+    if (filter === 'unverified') where.push('email_verified = 0');
+    if (filter === 'verified') where.push('email_verified = 1');
+    const sql = `
+      SELECT u.*,
+        (SELECT COUNT(*) FROM members m WHERE m.user_id = u.id) AS classes,
+        (SELECT COUNT(*) FROM homework h WHERE h.created_by = u.id) AS homework,
+        (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id AND s.expires_at > ?) AS sessions
+      FROM users u
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY u.created_at DESC LIMIT ? OFFSET ?`;
+    return db.prepare(sql).all(now(), ...args, limit, offset);
+  },
+  count: ({ q = '', filter = 'all' }) => {
+    const where = [];
+    const args = [];
+    if (q) { where.push('(lower(name) LIKE ? OR lower(email) LIKE ?)'); args.push(`%${q.toLowerCase()}%`, `%${q.toLowerCase()}%`); }
+    if (filter === 'banned') where.push('banned_at IS NOT NULL');
+    if (filter === 'unverified') where.push('email_verified = 0');
+    if (filter === 'verified') where.push('email_verified = 1');
+    return db.prepare(`SELECT COUNT(*) n FROM users ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`).get(...args).n;
+  },
+  membershipsFor: (userId) => db.prepare(`
+    SELECT c.id, c.name, m.role, c.created_at,
+      (SELECT COUNT(*) FROM members mm WHERE mm.class_id = c.id) AS members,
+      (SELECT COUNT(*) FROM homework h WHERE h.class_id = c.id) AS homework
+    FROM members m JOIN classes c ON c.id = m.class_id
+    WHERE m.user_id = ?
+    ORDER BY c.created_at DESC
+  `).all(userId),
+};
+
+export const adminClasses = {
+  list: (q = '') => db.prepare(`
+    SELECT c.*, u.name AS owner_name, u.email AS owner_email,
+      (SELECT COUNT(*) FROM members m WHERE m.class_id = c.id) AS members,
+      (SELECT COUNT(*) FROM homework h WHERE h.class_id = c.id) AS homework,
+      (SELECT COUNT(*) FROM subjects s WHERE s.class_id = c.id) AS subjects
+    FROM classes c JOIN users u ON u.id = c.owner_id
+    ${q ? 'WHERE lower(c.name) LIKE ?' : ''}
+    ORDER BY c.created_at DESC LIMIT 200
+  `).all(...(q ? [`%${q.toLowerCase()}%`] : [])),
+};

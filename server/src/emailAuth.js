@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import express from 'express';
 import { SERVER_URL, APP_URL, VERIFICATION_TTL_MIN, EMAIL_PROVIDER, EMAIL_MAX_PER_HOUR, IS_PROD } from './env.js';
-import { users, sessions, emailTokens } from './db.js';
-import { setSessionCookie } from './auth.js';
+import { users, emailTokens } from './db.js';
+import { startLogin } from './auth.js';
 import { sendVerificationEmail } from './email.js';
 import { badRequest, wrap } from './util.js';
 import { rateLimit } from './rateLimit.js';
@@ -40,11 +40,6 @@ function upsertVerifiedUser({ email, name }) {
     return users.byId(existing.id);
   }
   return users.create({ name: name || email.split('@')[0], email, verified: true });
-}
-
-function startSession(res, user) {
-  const session = sessions.create(user.id);
-  setSessionCookie(res, session.id, session.expires);
 }
 
 const CODE_RE = /^\d{6}$/;
@@ -109,7 +104,8 @@ emailAuthRoutes.post('/email/verify', verifyByIp, wrap(async (req, res) => {
 
   emailTokens.consume(row.id);
   const user = upsertVerifiedUser({ email, name: row.name });
-  startSession(res, user);
+  if (user.banned_at) return res.status(403).json({ error: 'banned' });
+  startLogin(req, res, user.id);
   res.json({ user: publicUser(user) });
 }));
 
@@ -124,6 +120,7 @@ emailAuthRoutes.get('/email/link', (req, res) => {
 
   emailTokens.consume(row.id);
   const user = upsertVerifiedUser({ email: row.email, name: row.name });
-  startSession(res, user);
+  if (user.banned_at) return res.redirect(`${APP_URL}/login?error=banned`);
+  startLogin(req, res, user.id);
   res.redirect(`${APP_URL}/`);
 });

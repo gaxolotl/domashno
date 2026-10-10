@@ -7,6 +7,7 @@ Timetable + homework board for a school class. Import the weekly timetable from 
 - **Today, by the clock** — shows the lesson that just ended, the one happening now, and the next one, each with one-tap homework.
 - **Homework** with due dates, notes, and file uploads (photos, PDF, presentations, documents), editable and deletable.
 - **Classes** with invite codes and per-subject permissions for who may post homework.
+- **Admin panel** (`/admin`, gated by `ADMIN_EMAIL` in `.env`) — stats, user management, bans, login fingerprints, and per-class feature flags (upload limit, freeze, official/featured).
 - **Sign in** with Google / GitHub, or an email code.
 - Light & dark theme, Bulgarian & English.
 

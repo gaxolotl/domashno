@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button, EmptyState, HomeworkGridSkeleton, Segmented, Select } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';
@@ -116,7 +116,7 @@ export default function HomeworkPage() {
         schedule={detail.schedule}
         editing={ed.editing}
         canPost={canPost}
-        maxMb={config?.maxUploadMb ?? 25}
+        maxMb={detail.class.features?.upload_mb ?? config?.maxUploadMb ?? 25}
       />
     </div>
   );

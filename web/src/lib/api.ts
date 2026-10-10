@@ -4,6 +4,89 @@ export interface Me {
   email: string | null;
   email_verified?: boolean;
   avatar_url: string | null;
+  is_admin?: boolean;
+}
+
+export interface ClassFeatures {
+  upload_mb: number | null;
+  read_only: boolean;
+  featured: boolean;
+  official: boolean;
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string | null;
+  email_verified: boolean;
+  avatar_url: string | null;
+  banned: boolean;
+  banned_at: string | null;
+  ban_reason: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+  classes?: number;
+  homework?: number;
+  sessions?: number;
+}
+
+export interface AdminMembership {
+  id: string;
+  name: string;
+  role: 'owner' | 'member';
+  members: number;
+  homework: number;
+  created_at: string;
+}
+
+export interface LoginEvent {
+  id: string;
+  user_id: string;
+  ip: string | null;
+  user_agent: string | null;
+  accept_language: string | null;
+  timezone: string | null;
+  locale: string | null;
+  screen: string | null;
+  platform: string | null;
+  created_at: string;
+  user_name?: string;
+  user_email?: string | null;
+}
+
+export interface AdminClass {
+  id: string;
+  name: string;
+  owner_name: string;
+  owner_email: string | null;
+  invite_code: string;
+  post_policy: 'everyone' | 'restricted';
+  source_url: string | null;
+  members: number;
+  homework: number;
+  subjects: number;
+  created_at: string;
+  features: ClassFeatures;
+}
+
+export interface AdminStats {
+  users: number;
+  verified: number;
+  banned: number;
+  classes: number;
+  subjects: number;
+  slots: number;
+  homework: number;
+  attachments: number;
+  storageBytes: number;
+  activeSessions: number;
+  newUsers7: number;
+  newUsers30: number;
+  homework7: number;
+  logins24: number;
+  providers: { provider: string; n: number }[];
+  topClasses: { id: string; name: string; owner: string; members: number; homework: number }[];
+  recentUsers: { id: string; name: string; email: string | null; email_verified: number; banned_at: string | null; created_at: string; classes: number }[];
 }
 
 export interface ClassSummary {
@@ -13,6 +96,7 @@ export interface ClassSummary {
   invite_code: string;
   post_policy: 'everyone' | 'restricted';
   source_url: string | null;
+  features?: ClassFeatures;
   created_at: string;
   can_manage?: boolean;
   member_count?: number;
@@ -188,4 +272,32 @@ export const api = {
     return request<{ attachments: Attachment[] }>(`/homework/${homeworkId}/attachments`, { method: 'POST', body: fd });
   },
   deleteAttachment: (id: string) => request<{ ok: true }>(`/attachments/${id}`, { method: 'DELETE' }),
+
+  /** Client-side fingerprint bits for the admin panel. */
+  fingerprint: (payload: { timezone: string; locale: string; screen: string; platform: string }) =>
+    request<{ ok: true }>('/me/fingerprint', json(payload)),
+
+  // ---- admin ----
+  adminStats: () => request<{ stats: AdminStats; adminEmails: string[] }>('/admin/stats'),
+  adminUsers: (params: { q?: string; filter?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set('q', params.q);
+    if (params.filter) qs.set('filter', params.filter);
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    const s = qs.toString();
+    return request<{ users: AdminUser[]; total: number }>(`/admin/users${s ? `?${s}` : ''}`);
+  },
+  adminUser: (id: string) =>
+    request<{ user: AdminUser; memberships: AdminMembership[]; logins: LoginEvent[]; ips: { ip: string; n: number; last: string }[] }>(`/admin/users/${id}`),
+  adminUpdateUser: (id: string, patch: Partial<{ name: string; email: string | null; email_verified: boolean; banned: boolean; ban_reason: string | null }>) =>
+    request<{ user: AdminUser }>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  adminRevokeSessions: (id: string) => request<{ revoked: number }>(`/admin/users/${id}/revoke-sessions`, { method: 'POST' }),
+  adminDeleteUser: (id: string, force = false) =>
+    request<{ ok: true }>(`/admin/users/${id}${force ? '?force=1' : ''}`, { method: 'DELETE' }),
+  adminClasses: (q = '') => request<{ classes: AdminClass[] }>(`/admin/classes${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  adminUpdateClass: (id: string, patch: Partial<{ name: string; post_policy: 'everyone' | 'restricted'; new_invite: boolean; features: Partial<ClassFeatures> }>) =>
+    request<{ class: AdminClass }>(`/admin/classes/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  adminDeleteClass: (id: string) => request<{ ok: true }>(`/admin/classes/${id}`, { method: 'DELETE' }),
+  adminLogins: (limit = 60) => request<{ logins: LoginEvent[] }>(`/admin/logins?limit=${limit}`),
 };

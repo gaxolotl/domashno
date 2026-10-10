@@ -62,6 +62,18 @@ export const VERIFICATION_TTL_MIN = 10;
 /** Hard cap on verification emails sent per hour (protects your provider quota). */
 export const EMAIL_MAX_PER_HOUR = num(process.env.EMAIL_MAX_PER_HOUR, 300);
 
+/**
+ * Admins are whoever signs in with one of these email addresses.
+ * Accepts ADMIN_EMAIL or a comma-separated ADMIN_EMAILS list.
+ */
+export const ADMIN_EMAILS = `${process.env.ADMIN_EMAILS || ''},${process.env.ADMIN_EMAIL || ''}`
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+
+export const isAdminEmail = (email) =>
+  Boolean(email) && ADMIN_EMAILS.includes(String(email).toLowerCase());
+
 export function oauthEnabled(provider) {
   const p = OAUTH[provider];
   return Boolean(p && p.id && p.secret);

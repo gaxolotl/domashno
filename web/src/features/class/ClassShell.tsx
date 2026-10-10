@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  CalendarDays, ChevronDown, ListChecks, LogOut, NotebookPen, Plus, Settings, Ticket,
+  CalendarDays, ChevronDown, ListChecks, LogOut, NotebookPen, Plus, Settings, ShieldCheck, Ticket, type LucideIcon,
 } from 'lucide-react';
 import { Avatar, Button, PageSkeleton, cn } from '../../components/ui';
 import { Logo } from '../../components/Brand';
@@ -25,13 +25,17 @@ export function useClassCtx() {
   return ctx;
 }
 
-function navItems() {
-  return [
+interface NavItem { to: string; end: boolean; label: string; icon: LucideIcon; href?: string }
+
+function navItems(isAdmin: boolean) {
+  const items: NavItem[] = [
     { to: '', end: true, label: m.nav_today(), icon: NotebookPen },
     { to: 'week', end: false, label: m.nav_week(), icon: CalendarDays },
     { to: 'homework', end: false, label: m.nav_homework(), icon: ListChecks },
     { to: 'settings', end: false, label: m.nav_settings(), icon: Settings },
   ];
+  if (isAdmin) items.push({ to: 'admin', end: false, label: m.admin_title(), icon: ShieldCheck, href: '/admin' });
+  return items;
 }
 
 function ClassSwitcher({ currentId, currentName }: { currentId: string; currentName: string }) {
@@ -80,7 +84,9 @@ function ClassSwitcher({ currentId, currentName }: { currentId: string; currentN
 }
 
 function ShellLayout({ classId, name, user, children }: { classId: string; name: string; user: Me | null | undefined; children: ReactNode }) {
-  const items = navItems();
+  const items = navItems(Boolean(user?.is_admin));
+  const toHref = (item: { to: string; href?: string }) =>
+    item.href ?? (item.to ? `/class/${classId}/${item.to}` : `/class/${classId}`);
   return (
     <div className="mx-auto flex min-h-dvh max-w-[1200px]">
       <aside className="sticky top-0 hidden h-dvh w-72 shrink-0 flex-col gap-4 border-r border-line px-4 py-5 lg:flex">
@@ -92,15 +98,15 @@ function ShellLayout({ classId, name, user, children }: { classId: string; name:
         <ClassSwitcher currentId={classId} currentName={name || '…'} />
 
         <nav className="mt-1 flex flex-1 flex-col gap-1">
-          {items.map(({ to, end, label, icon: Icon }) => (
+          {items.map((item) => (
             <NavLink
-              key={to || 'index'}
-              to={to ? `/class/${classId}/${to}` : `/class/${classId}`}
-              end={end}
+              key={item.to || 'index'}
+              to={toHref(item)}
+              end={item.end}
               className={({ isActive }) => cn('flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors', isActive ? 'bg-primary-soft text-primary' : 'text-muted hover:bg-surface2 hover:text-ink')}
             >
-              <Icon className="h-[18px] w-[18px]" />
-              {label}
+              <item.icon className="h-[18px] w-[18px]" />
+              {item.label}
             </NavLink>
           ))}
         </nav>
@@ -137,19 +143,19 @@ function ShellLayout({ classId, name, user, children }: { classId: string; name:
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg lg:hidden">
         <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-1.5">
-          {items.map(({ to, end, label, icon: Icon }) => (
+          {items.map((item) => (
             <NavLink
-              key={to || 'index'}
-              to={to ? `/class/${classId}/${to}` : `/class/${classId}`}
-              end={end}
+              key={item.to || 'index'}
+              to={toHref(item)}
+              end={item.end}
               className={({ isActive }) => cn('flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-medium transition-colors', isActive ? 'text-primary' : 'text-muted')}
             >
               {({ isActive }) => (
                 <>
                   <span className={cn('grid h-8 w-full place-items-center rounded-lg', isActive && 'bg-primary-soft')}>
-                    <Icon className="h-5 w-5" />
+                    <item.icon className="h-5 w-5" />
                   </span>
-                  {label}
+                  {item.label}
                 </>
               )}
             </NavLink>

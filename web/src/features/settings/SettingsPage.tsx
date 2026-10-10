@@ -146,6 +146,13 @@ export default function SettingsPage() {
             )}
           </div>
         </Field>
+        {(detail.class.features?.official || detail.class.features?.featured || detail.class.features?.read_only) && (
+          <div className="flex flex-wrap gap-1.5">
+            {detail.class.features?.official && <Badge className="bg-primary-soft text-primary">{m.badge_official()}</Badge>}
+            {detail.class.features?.featured && <Badge className="bg-accent/25 text-accent-ink">{m.badge_featured()}</Badge>}
+            {detail.class.features?.read_only && <Badge className="bg-red/10 text-red">{m.class_read_only()}</Badge>}
+          </div>
+        )}
       </Card>
 
       {/* Invite */}
