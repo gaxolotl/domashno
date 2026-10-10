@@ -1,0 +1,31 @@
+{
+  "name": "domashno",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Class timetable + homework board (PWA). Import a Shkolo PDF timetable, then let your class post homework with files.",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gaxolotl/domashno.git"
+  },
+  "homepage": "https://github.com/gaxolotl/domashno#readme",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c \"green,cyan\" \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:web": "npm --workspace web run dev",
+    "build": "npm --workspace web run build",
+    "start": "npm --workspace server run start",
+    "setup": "npm install && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@11.10.0": true,
+    "esbuild@0.25.12": true
+  }
+}

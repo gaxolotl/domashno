@@ -1,0 +1,21 @@
+[Unit]
+Description=Domashno (timetable + homework)
+After=network.target
+
+[Service]
+Type=simple
+User=domashno
+Group=domashno
+WorkingDirectory=/opt/domashno
+EnvironmentFile=/opt/domashno/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server/src/index.js
+Restart=always
+RestartSec=3
+
+# hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

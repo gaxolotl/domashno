@@ -1,0 +1,12 @@
+node_modules/
+dist/
+server/data/
+server/data/**
+!server/data/.gitkeep
+web/src/paraglide/
+.env
+.env.local
+*.log
+.DS_Store
+
+web/email-preview.html
