@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LogOut, Plus, Ticket } from 'lucide-react';
+import { ArrowLeft, LogOut, Plus, Ticket } from 'lucide-react';
 import { Button, Card, Field, Input, Segmented, cn } from '../../components/ui';
 import { LanguageControl, ThemeControl } from '../../components/Controls';
 import { api } from '../../lib/api';
-import { useMe } from '../../lib/hooks';
+import { useClasses, useMe } from '../../lib/hooks';
 import { m } from '../../paraglide/messages';
 
 export default function OnboardingPage() {
   const nav = useNavigate();
   const [params] = useSearchParams();
   const me = useMe();
+  // Arrived from the class switcher → allow going back.
+  const classesQ = useClasses();
+  const hasClasses = (classesQ.data?.classes ?? []).length > 0;
   const [name, setName] = useState(me.data?.user?.name ?? '');
   const [tab, setTab] = useState<'create' | 'join'>(params.get('tab') === 'join' ? 'join' : 'create');
   const [className, setClassName] = useState('');
@@ -53,9 +56,20 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-dvh">
-      <header className="mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
-        <span className="font-display text-lg font-bold text-ink">Домашно</span>
-        <div className="flex items-center gap-2">
+      <header className="mx-auto flex max-w-2xl items-center gap-2 px-5 py-4">
+        {hasClasses && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => nav(-1)}
+            aria-label={m.common_back()}
+            title={m.common_back()}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
+        <span className="text-lg font-bold text-ink">Домашно</span>
+        <div className="ml-auto flex items-center gap-2">
           <LanguageControl />
           <ThemeControl />
           <Button variant="ghost" size="icon" title={m.nav_signout()} onClick={async () => { await api.logout(); location.assign('/'); }}>

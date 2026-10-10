@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Copy, Crown, KeyRound, Plus, ShieldCheck, ShieldOff, Trash2, UserMinus } from 'lucide-react';
+import { Check, Copy, Crown, KeyRound, LogOut, Plus, ShieldCheck, ShieldOff, Trash2, UserMinus } from 'lucide-react';
 import { Avatar, Badge, Button, Card, Field, Input, Modal, Segmented, cn, useToast } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';
 import { TimetableSection } from '../schedule/TimetableSection';
@@ -109,11 +109,32 @@ export default function SettingsPage() {
     } catch (e) { fail(e); }
   };
 
+  const signOut = async () => {
+    try {
+      await api.logout();
+    } finally {
+      location.assign('/');
+    }
+  };
+
   const restricted = detail.class.post_policy === 'restricted';
 
   return (
     <div className="stagger space-y-6">
       <h1 className="text-2xl">{m.set_title()}</h1>
+
+      {/* Account */}
+      <Card className="flex items-center gap-3 p-4">
+        <Avatar name={me.data?.user?.name ?? ''} src={me.data?.user?.avatar_url} size={40} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-ink">{me.data?.user?.name}</p>
+          {me.data?.user?.email && <p className="truncate text-xs text-muted">{me.data.user.email}</p>}
+        </div>
+        <Button variant="secondary" size="sm" className="shrink-0" onClick={signOut}>
+          <LogOut className="h-4 w-4" />
+          {m.nav_signout()}
+        </Button>
+      </Card>
 
       {/* Class name */}
       <Card className="space-y-3 p-5">
