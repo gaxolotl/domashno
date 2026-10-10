@@ -61,7 +61,7 @@ and automatic HTTPS. Build with `npm run build`, run with `npm start`.
 ```
 server/   Node + Express + SQLite API, Shkolo PDF parser, email
 web/      React + Vite + Tailwind PWA
-deploy/   Caddyfile + systemd unit for production
+deploy/   nginx / Caddy config + systemd unit for production
 ```
 
 ## Scripts
