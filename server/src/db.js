@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { DB_PATH } from './env.js';
-import { newId, newInviteCode, newToken } from './util.js';
+import { newId, newInviteCode, newToken, sanitizeText } from './util.js';
 
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
@@ -154,11 +154,11 @@ export const users = {
   create: ({ name, email = null, avatar_url = null, verified = false }) => {
     const id = newId();
     db.prepare('INSERT INTO users (id,name,email,email_verified,avatar_url,created_at) VALUES (?,?,?,?,?,?)')
-      .run(id, name, email, verified ? 1 : 0, avatar_url, now());
+      .run(id, sanitizeText(name), email, verified ? 1 : 0, avatar_url, now());
     return users.byId(id);
   },
   rename: (id, name) => {
-    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, id);
+    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(sanitizeText(name), id);
     return users.byId(id);
   },
   markVerified: (id) => db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(id),
@@ -230,7 +230,7 @@ export const classes = {
     const id = newId();
     const code = uniqueInviteCode();
     db.prepare('INSERT INTO classes (id,name,owner_id,invite_code,created_at) VALUES (?,?,?,?,?)')
-      .run(id, name, ownerId, code, now());
+      .run(id, sanitizeText(name), ownerId, code, now());
     members.add(id, ownerId, 'owner');
     return classes.byId(id);
   },
@@ -250,7 +250,7 @@ export const classes = {
       ORDER BY m.created_at ASC
     `).all(userId),
   update: (id, { name, post_policy, source_url }) => {
-    if (name !== undefined) db.prepare('UPDATE classes SET name = ? WHERE id = ?').run(name, id);
+    if (name !== undefined) db.prepare('UPDATE classes SET name = ? WHERE id = ?').run(sanitizeText(name), id);
     if (post_policy !== undefined)
       db.prepare('UPDATE classes SET post_policy = ? WHERE id = ?').run(post_policy, id);
     if (source_url !== undefined)
@@ -298,14 +298,15 @@ export const subjects = {
     const sort = (db.prepare('SELECT COALESCE(MAX(sort),-1)+1 n FROM subjects WHERE class_id = ?').get(classId).n);
     const chosen = color || SUBJECT_COLORS[sort % SUBJECT_COLORS.length];
     db.prepare('INSERT INTO subjects (id,class_id,name,color,teacher,sort,created_at) VALUES (?,?,?,?,?,?,?)')
-      .run(id, classId, name, chosen, teacher || null, sort, now());
+      .run(id, classId, sanitizeText(name), chosen, sanitizeText(teacher) || null, sort, now());
     return subjects.byId(id);
   },
   update: (id, { name, color, teacher }) => {
     const s = subjects.byId(id);
     if (!s) return null;
     db.prepare('UPDATE subjects SET name = ?, color = ?, teacher = ? WHERE id = ?').run(
-      name ?? s.name, color ?? s.color, teacher === undefined ? s.teacher : teacher, id,
+      sanitizeText(name ?? s.name), color ?? s.color,
+      teacher === undefined ? s.teacher : (sanitizeText(teacher) || null), id,
     );
     return subjects.byId(id);
   },
@@ -323,8 +324,9 @@ export const slots = {
       (id,class_id,day,period,subject_id,label,teacher,room,start_time,end_time,created_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
     for (const s of list) {
-      ins.run(newId(), classId, s.day, s.period, s.subject_id ?? null, s.label ?? null,
-        s.teacher ?? null, s.room ?? null, s.start_time ?? null, s.end_time ?? null, now());
+      ins.run(newId(), classId, s.day, s.period, s.subject_id ?? null,
+        sanitizeText(s.label) || null, sanitizeText(s.teacher) || null, sanitizeText(s.room) || null,
+        s.start_time ?? null, s.end_time ?? null, now());
     }
   }),
 };
@@ -360,15 +362,16 @@ export const homework = {
     db.prepare(`INSERT INTO homework
       (id,class_id,subject_id,created_by,title,body,due_date,due_period,created_at,updated_at)
       VALUES (?,?,?,?,?,?,?,?,?,?)`)
-      .run(id, classId, subjectId ?? null, createdBy, title, body ?? null, dueDate, duePeriod ?? null, now(), now());
+      .run(id, classId, subjectId ?? null, createdBy, sanitizeText(title),
+        body == null ? null : sanitizeText(body), dueDate, duePeriod ?? null, now(), now());
     return homework.byId(id);
   },
   update: (id, { subjectId, title, body, dueDate, duePeriod }) => {
     const h = homework.raw(id);
     if (!h) return null;
     db.prepare('UPDATE homework SET subject_id = ?, title = ?, body = ?, due_date = ?, due_period = ?, updated_at = ? WHERE id = ?')
-      .run(subjectId === undefined ? h.subject_id : subjectId, title ?? h.title,
-        body === undefined ? h.body : body, dueDate ?? h.due_date,
+      .run(subjectId === undefined ? h.subject_id : subjectId, sanitizeText(title ?? h.title),
+        body === undefined ? h.body : (body == null ? null : sanitizeText(body)), dueDate ?? h.due_date,
         duePeriod === undefined ? h.due_period : duePeriod, now(), id);
     return homework.byId(id);
   },

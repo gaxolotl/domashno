@@ -26,5 +26,20 @@ export function forbidden(res, message = 'Not allowed') {
 
 export const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
+// Icon fonts (Shkolo uses one for its subject/teacher pictograms) put glyphs in the
+// Unicode Private Use Area. Those render as blank boxes, so strip them — along with
+// other invisible/formatting characters — before any text is stored.
+const INVISIBLE_RE =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u200B-\u200F\u2028-\u202E\u2060-\u2064\uFEFF\uFFFD\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]/gu;
+
+export function sanitizeText(value) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/\u00A0/g, ' ') // non-breaking space
+    .replace(INVISIBLE_RE, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 // Wrap an async express handler so thrown errors reach the error middleware.
 export const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);

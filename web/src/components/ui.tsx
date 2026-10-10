@@ -14,10 +14,12 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { createPortal } from 'react-dom';
-import clsx from 'clsx';
+import clsx, { type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { Check, Info, Loader2, X } from 'lucide-react';
 
-export const cn = clsx;
+// clsx + tailwind-merge: later classes win, so component defaults can be overridden.
+export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
 /* --------------------------------- Button --------------------------------- */
 

@@ -9,7 +9,7 @@ import {
 } from './db.js';
 import { requireAuth, requireMembership, isOwner } from './auth.js';
 import { publicUser } from './oauth.js';
-import { badRequest, notFound, forbidden, isDate, wrap, newId } from './util.js';
+import { badRequest, notFound, forbidden, isDate, wrap, newId, sanitizeText } from './util.js';
 import { rateLimit } from './rateLimit.js';
 import { parseImageParams, ensureThumb, dropThumbs } from './images.js';
 import { sample7a } from './sample7a.js';
@@ -98,8 +98,8 @@ function applySchedule(classId, list) {
     const period = Number(raw.period);
     if (!Number.isInteger(day) || day < 1 || day > 7) continue;
     if (!Number.isInteger(period) || period < 0 || period > 12) continue;
-    const subjectName = String(raw.subject ?? '').trim();
-    const label = String(raw.label ?? '').trim();
+    const subjectName = sanitizeText(raw.subject) || '';
+    const label = sanitizeText(raw.label) || '';
     if (!subjectName && !label) continue;
     let subjectId = raw.subject_id && subjects.byId(raw.subject_id)?.id === raw.subject_id ? raw.subject_id : null;
     if (!subjectId && subjectName) subjectId = findOrCreateSubject(classId, subjectName)?.id ?? null;
@@ -109,8 +109,8 @@ function applySchedule(classId, list) {
       period,
       subject_id: subjectId,
       label: label || null,
-      teacher: String(raw.teacher ?? '').trim() || null,
-      room: String(raw.room ?? '').trim() || null,
+      teacher: sanitizeText(raw.teacher) || null,
+      room: sanitizeText(raw.room) || null,
       start_time: time(raw.start ?? raw.start_time),
       end_time: time(raw.end ?? raw.end_time),
     });
@@ -267,7 +267,7 @@ apiRouter.delete('/classes/:id/members/:userId', requireAuth, requireMembership(
 /* --------------------------------- subjects -------------------------------- */
 
 apiRouter.post('/classes/:id/subjects', requireAuth, requireMembership('id'), (req, res) => {
-  const name = String(req.body?.name || '').trim();
+  const name = sanitizeText(req.body?.name) || '';
   if (!name) return badRequest(res, 'Subject name is required');
   const existing = subjects.byName(req.classId, name);
   if (existing) return res.json({ subject: subjectView(existing) });
@@ -291,9 +291,9 @@ apiRouter.patch('/subjects/:id', requireAuth, (req, res) => {
   const subject = subjectInClass(req, res);
   if (!subject) return;
   const updated = subjects.update(subject.id, {
-    name: req.body?.name !== undefined ? String(req.body.name).trim() : undefined,
+    name: req.body?.name !== undefined ? sanitizeText(req.body.name) : undefined,
     color: req.body?.color !== undefined ? req.body.color : undefined,
-    teacher: req.body?.teacher !== undefined ? String(req.body.teacher) : undefined,
+    teacher: req.body?.teacher !== undefined ? sanitizeText(req.body.teacher) : undefined,
   });
   res.json({ subject: subjectView(updated) });
 });

@@ -203,26 +203,27 @@ export function TimetableSection() {
                       const index = (rows ?? []).indexOf(row);
                       return (
                         <div key={index} className="rounded-xl border border-line bg-surface2/50 p-2.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted">{m.sch_period()}</span>
+                          <div className="flex items-center gap-1.5">
                             <Input
                               type="number"
                               min={0}
                               max={12}
                               value={row.period}
                               onChange={(e) => update(index, { period: Number(e.target.value) })}
-                              className="h-8 w-14 px-2 text-center tnum"
+                              aria-label={m.sch_period()}
+                              title={m.sch_period()}
+                              className="h-9 w-12 shrink-0 px-1 text-center tnum"
                             />
                             <Input
                               list="subject-options"
                               value={row.subject}
                               onChange={(e) => update(index, { subject: e.target.value })}
                               placeholder={m.sch_subject()}
-                              className="h-8 flex-1"
+                              className="h-9 min-w-0 flex-1"
                             />
                             <button
                               onClick={() => remove(index)}
-                              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-red/10 hover:text-red"
+                              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-red/10 hover:text-red"
                               aria-label={m.sch_remove_period()}
                             >
                               <Trash2 className="h-4 w-4" />

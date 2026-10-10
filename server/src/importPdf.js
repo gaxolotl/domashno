@@ -5,6 +5,8 @@
 // boxes, and parse each day block into { period, subject, teacher, room, start, end }.
 // The result is only a draft; the user reviews and fixes it in the UI before saving.
 
+import { sanitizeText } from './util.js';
+
 const DAYS = [
   { day: 1, re: /^(понеделник|пон|monday|mon)(?![а-яa-z])/i },
   { day: 2, re: /^(вторник|вто|tuesday|tue)(?![а-яa-z])/i },
@@ -14,7 +16,6 @@ const DAYS = [
   { day: 6, re: /^(събота|съб|saturday|sat)(?![а-яa-z])/i },
   { day: 7, re: /^(неделя|нед|sunday|sun)(?![а-яa-z])/i },
 ];
-
 const DATE_ONLY = /^[\/|#]?\s*\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\s*$/;
 const PERIOD_RE = /^[^\wА-Яа-я]*\s*(\d{1,2})\s*[.)]\s*(\S.*)$/;
 const NOISE = /shkolo\s*дневник|https?:\/\/|tab_schedule|^\s*\d{1,2}\s*\/\s*\d{1,2}\s*$|^\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}/i;
@@ -32,12 +33,16 @@ async function getPdfjs() {
 
 // Rebuild word boxes from pdf.js text items, normalising any page rotation to a
 // common upright orientation so that rows can be grouped by y.
+// Glyphs from icon fonts (Private Use Area) are dropped here.
 function textWords(items) {
-  const clean = items.filter((it) => 'str' in it && it.str.trim());
+  const clean = items
+    .filter((it) => 'str' in it)
+    .map((it) => ({ it, str: sanitizeText(it.str) }))
+    .filter((x) => x.str && x.str.trim());
   if (!clean.length) return { words: [], text: '' };
   let sumSin = 0;
   let sumCos = 0;
-  for (const it of clean) {
+  for (const { it } of clean) {
     const [a, b] = it.transform;
     sumSin += Math.sin(Math.atan2(b, a));
     sumCos += Math.cos(Math.atan2(b, a));
@@ -45,16 +50,16 @@ function textWords(items) {
   const mean = Math.atan2(sumSin, sumCos);
   const cos = Math.cos(-mean);
   const sin = Math.sin(-mean);
-  const words = clean.map((it) => {
+  const words = clean.map(({ it, str }) => {
     const x = it.transform[4];
     const y = it.transform[5];
     const px = x * cos - y * sin;
     const py = x * sin + y * cos;
-    const w = Math.abs(it.width) || it.str.length * 4;
+    const w = Math.abs(it.width) || str.length * 4;
     const h = Math.abs(it.height) || 8;
-    return { text: it.str, left: px, right: px + w, top: -py - h, bottom: -py + h, cx: px + w / 2, cy: -py };
+    return { text: str, left: px, right: px + w, top: -py - h, bottom: -py + h, cx: px + w / 2, cy: -py };
   });
-  return { words, text: clean.map((it) => it.str).join(' ') };
+  return { words, text: clean.map((x) => x.str).join(' ') };
 }
 
 /* ------------------------- words -> visual lines --------------------------- */
