@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, MapPin, Plus, User } from 'lucide-react';
+import { Clock, MapPin, Paperclip, Plus, User } from 'lucide-react';
 import { Button, Card, EmptyState, HomeworkGridSkeleton, cn, revealDelay } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';
 import { HomeworkEditor } from '../homework/HomeworkEditor';
@@ -196,7 +196,15 @@ export default function TodayPage() {
                         {hw.map((h) => (
                           <li key={h.id} className="flex items-center gap-2 text-sm">
                             <span className="min-w-0 flex-1 truncate text-ink">{h.title}</span>
-                            {h.attachments.length > 0 && <span className="text-xs text-muted">{h.attachments.length}📎</span>}
+                            {h.attachments.length > 0 && (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-xs text-muted"
+                                title={m.hw_attachments_count({ count: String(h.attachments.length) })}
+                              >
+                                <Paperclip className="h-3 w-3" />
+                                {h.attachments.length}
+                              </span>
+                            )}
                             <button onClick={() => setEd({ open: true, editing: h })} className="text-xs font-medium text-primary hover:underline">{m.common_edit()}</button>
                           </li>
                         ))}
