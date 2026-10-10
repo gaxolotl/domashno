@@ -63,6 +63,7 @@ export interface Homework {
   title: string;
   body: string | null;
   due_date: string;
+  due_period: number | null;
   created_at: string;
   updated_at: string;
   subject: { id: string; name: string; color: string } | null;
@@ -176,9 +177,9 @@ export const api = {
     const qs = q.toString();
     return request<{ homework: Homework[] }>(`/classes/${classId}/homework${qs ? `?${qs}` : ''}`);
   },
-  createHomework: (classId: string, body: { subject_id: string | null; title: string; body: string; due_date: string }) =>
+  createHomework: (classId: string, body: { subject_id: string | null; title: string; body: string; due_date: string; due_period?: number | null }) =>
     request<{ homework: Homework }>(`/classes/${classId}/homework`, json(body)),
-  updateHomework: (id: string, body: Partial<{ subject_id: string | null; title: string; body: string; due_date: string }>) =>
+  updateHomework: (id: string, body: Partial<{ subject_id: string | null; title: string; body: string; due_date: string; due_period: number | null }>) =>
     request<{ homework: Homework }>(`/homework/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteHomework: (id: string) => request<{ ok: true }>(`/homework/${id}`, { method: 'DELETE' }),
   uploadFiles: (homeworkId: string, files: File[]) => {

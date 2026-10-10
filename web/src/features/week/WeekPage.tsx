@@ -110,6 +110,7 @@ export default function WeekPage() {
         onClose={() => setEd({ open: false })}
         classId={classId}
         subjects={detail.subjects}
+        schedule={detail.schedule}
         editing={ed.editing}
         defaultDate={ed.date}
         defaultSubjectId={ed.subjectId}

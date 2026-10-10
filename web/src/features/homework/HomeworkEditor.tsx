@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Paperclip, Trash2, UploadCloud } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea, cn, useToast } from '../../components/ui';
-import { api, ApiError, type Attachment, type Homework, type Subject } from '../../lib/api';
+import { api, ApiError, type Attachment, type Homework, type Slot, type Subject } from '../../lib/api';
 import { todayISO, humanSize } from '../../lib/dates';
+import { nextLessonDate } from '../../lib/timetable';
+import { DueDatePicker, type DueValue } from './DueDatePicker';
 import { m } from '../../paraglide/messages';
 
 export function AttachmentGrid({ items, onDelete }: { items: Attachment[]; onDelete?: (a: Attachment) => void }) {
@@ -89,6 +91,7 @@ export function HomeworkEditor({
   onClose,
   classId,
   subjects,
+  schedule,
   editing,
   defaultDate,
   defaultSubjectId,
@@ -99,6 +102,7 @@ export function HomeworkEditor({
   onClose: () => void;
   classId: string;
   subjects: Subject[];
+  schedule: Slot[];
   editing?: Homework | null;
   defaultDate?: string;
   defaultSubjectId?: string | null;
@@ -109,7 +113,8 @@ export function HomeworkEditor({
   const [subjectId, setSubjectId] = useState<string>('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [due, setDue] = useState(defaultDate || todayISO());
+  const [due, setDue] = useState<DueValue>({ date: defaultDate || todayISO(), period: null });
+  const [dateTouched, setDateTouched] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [pending, setPending] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -117,14 +122,25 @@ export function HomeworkEditor({
 
   useEffect(() => {
     if (!open) return;
-    setSubjectId(editing?.subject?.id ?? defaultSubjectId ?? '');
+    const sid = editing?.subject?.id ?? defaultSubjectId ?? '';
+    setSubjectId(sid);
     setTitle(editing?.title ?? '');
     setBody(editing?.body ?? '');
-    setDue(editing?.due_date ?? defaultDate ?? todayISO());
+    const initialDate = editing?.due_date ?? defaultDate ?? nextLessonDate(schedule, sid, todayISO()) ?? todayISO();
+    setDue({ date: initialDate, period: editing?.due_period ?? null });
+    setDateTouched(Boolean(editing?.due_date || defaultDate));
     setAttachments(editing?.attachments ?? []);
     setPending([]);
     setError('');
-  }, [open, editing, defaultDate, defaultSubjectId]);
+  }, [open, editing, defaultDate, defaultSubjectId, schedule]);
+
+  // Changing the subject re-suggests the next lesson date (until the user picks one).
+  const onSubjectChange = (sid: string) => {
+    setSubjectId(sid);
+    if (!dateTouched) {
+      setDue({ date: nextLessonDate(schedule, sid || null, todayISO()) ?? todayISO(), period: null });
+    }
+  };
 
   const picker = useFilePicker(async (files) => {
     if (editing) {
@@ -143,7 +159,7 @@ export function HomeworkEditor({
   }, maxMb, (msg) => toast.push(msg, 'error'));
 
   const save = async () => {
-    if (!title.trim()) return setError(m.common_required());
+    if (!title.trim() || !due.date) return setError(m.common_required());
     if (!canPost(subjectId || null) && !editing) return setError(m.hw_no_permission());
     setBusy(true);
     setError('');
@@ -153,7 +169,8 @@ export function HomeworkEditor({
           subject_id: subjectId || null,
           title: title.trim(),
           body: body.trim(),
-          due_date: due,
+          due_date: due.date,
+          due_period: due.period,
         });
         toast.push(m.hw_saved(), 'success');
       } else {
@@ -161,7 +178,8 @@ export function HomeworkEditor({
           subject_id: subjectId || null,
           title: title.trim(),
           body: body.trim(),
-          due_date: due,
+          due_date: due.date,
+          due_period: due.period,
         });
         if (pending.length) await api.uploadFiles(homework.id, pending);
         toast.push(m.hw_created(), 'success');
@@ -190,7 +208,7 @@ export function HomeworkEditor({
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={m.hw_subject()}>
-            <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+            <Select value={subjectId} onChange={(e) => onSubjectChange(e.target.value)}>
               <option value="">{m.hw_subject_none()}</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
@@ -198,7 +216,13 @@ export function HomeworkEditor({
             </Select>
           </Field>
           <Field label={m.hw_due()}>
-            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+            <DueDatePicker
+              schedule={schedule}
+              subjectId={subjectId || null}
+              subjectName={subjects.find((s) => s.id === subjectId)?.name ?? ''}
+              value={due}
+              onChange={(v) => { setDue(v); setDateTouched(true); }}
+            />
           </Field>
         </div>
 

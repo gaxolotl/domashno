@@ -6,7 +6,7 @@ import { getLocale } from '../../paraglide/runtime';
 import { m } from '../../paraglide/messages';
 import { AttachmentGrid } from './HomeworkEditor';
 
-export function DueChip({ due }: { due: string }) {
+export function DueChip({ due, period }: { due: string; period?: number | null }) {
   const diff = daysBetween(todayISO(), due);
   const label = diff === 0 ? m.hw_due_today() : diff === 1 ? m.hw_due_tomorrow() : formatFullDate(due, getLocale());
   const tone = diff < 0 ? 'text-red' : diff === 0 ? 'text-primary' : 'text-muted';
@@ -14,6 +14,7 @@ export function DueChip({ due }: { due: string }) {
     <span className={cn('inline-flex items-center gap-1 text-xs font-medium tnum', tone)}>
       <CalendarClock className="h-3.5 w-3.5" />
       {label}
+      {period != null && <span className="text-muted">· {m.due_lesson_n({ n: String(period) })}</span>}
     </span>
   );
 }
@@ -45,7 +46,7 @@ export function HomeworkCard({
             ) : (
               <Badge>{m.hw_subject_none()}</Badge>
             )}
-            <DueChip due={hw.due_date} />
+            <DueChip due={hw.due_date} period={hw.due_period} />
           </div>
           <h3 className="mt-1.5 text-base font-semibold leading-snug text-ink">{hw.title}</h3>
           {hw.body && <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{hw.body}</p>}

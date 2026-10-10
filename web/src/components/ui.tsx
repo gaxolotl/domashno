@@ -196,27 +196,28 @@ export function Modal({
 
   if (!open) return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex sm:items-center sm:justify-center sm:p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
         className={cn(
-          'animate-pop relative flex max-h-[92dvh] w-full flex-col overflow-hidden border border-line bg-surface shadow-2xl sm:rounded-2xl',
-          'rounded-t-2xl',
+          // full screen on phones, centred dialog on larger screens
+          'animate-pop relative flex h-full w-full flex-col overflow-hidden bg-surface shadow-2xl',
+          'sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-line',
           size === 'sm' && 'sm:max-w-sm',
           size === 'md' && 'sm:max-w-lg',
           size === 'lg' && 'sm:max-w-3xl',
         )}
       >
         {title && (
-          <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-3.5">
+          <div className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 sm:px-5 sm:py-3.5">
             <h2 className="text-lg">{title}</h2>
             <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
               <X className="h-5 w-5" />
             </Button>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="border-t border-line bg-surface2 px-5 py-3">{footer}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
+        {footer && <div className="safe-bottom border-t border-line bg-surface2 px-4 py-3 sm:px-5">{footer}</div>}
       </div>
     </div>,
     document.body,

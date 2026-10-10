@@ -133,15 +133,19 @@ export default function SettingsPage() {
           <h2 className="text-lg">{m.set_invite()}</h2>
         </div>
         <p className="text-sm text-muted">{m.set_invite_hint()}</p>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 rounded-xl border border-line bg-surface2 px-4 py-2.5 font-mono text-xl font-semibold tracking-[0.35em] text-ink">
+        <div className="space-y-2">
+          <div className="rounded-xl border border-line bg-surface2 px-4 py-3 text-center font-mono text-2xl font-semibold tracking-[0.28em] text-ink">
             {detail.class.invite_code}
           </div>
-          <Button variant="secondary" onClick={copyCode}>
-            {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-            {copied ? m.common_copied() : m.common_copy()}
-          </Button>
-          {canManage && <Button variant="ghost" onClick={regenerate}>{m.set_new_code()}</Button>}
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={copyCode}>
+              {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+              {copied ? m.common_copied() : m.common_copy()}
+            </Button>
+            {canManage && (
+              <Button variant="ghost" className="flex-1" onClick={regenerate}>{m.set_new_code()}</Button>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -165,31 +169,33 @@ export default function SettingsPage() {
         <h2 className="text-lg">{m.set_members()}</h2>
         <ul className="mt-3 divide-y divide-line">
           {detail.members.map((mem) => (
-            <li key={mem.id} className="flex items-center gap-3 py-2.5">
+            <li key={mem.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
               <Avatar name={mem.name} src={mem.avatar_url} size={34} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{mem.name}{mem.id === me.data?.user?.id && <span className="text-muted"> · {m.auth_signed_in_as().toLowerCase()}</span>}</p>
                 {mem.email && <p className="truncate text-xs text-muted">{mem.email}</p>}
               </div>
-              {mem.role === 'owner' ? (
-                <Badge className="bg-accent/25 text-accent-ink"><Crown className="h-3 w-3" />{m.set_owner()}</Badge>
-              ) : (
-                <Badge>{m.set_member()}</Badge>
-              )}
-              {canManage && mem.id !== me.data?.user?.id && (
-                <div className="flex items-center gap-1">
-                  {mem.role === 'member' ? (
-                    <Button size="sm" variant="ghost" onClick={() => promote(mem)} title={m.set_make_owner()}>
-                      <Crown className="h-3.5 w-3.5" />
+              <div className="ml-auto flex items-center gap-1">
+                {mem.role === 'owner' ? (
+                  <Badge className="bg-accent/25 text-accent-ink"><Crown className="h-3 w-3" />{m.set_owner()}</Badge>
+                ) : (
+                  <Badge>{m.set_member()}</Badge>
+                )}
+                {canManage && mem.id !== me.data?.user?.id && (
+                  <>
+                    {mem.role === 'member' ? (
+                      <Button size="sm" variant="ghost" onClick={() => promote(mem)} title={m.set_make_owner()}>
+                        <Crown className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="ghost" onClick={() => demote(mem)}>{m.set_member()}</Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="text-red" onClick={() => removeMember(mem)} title={m.set_remove_member()}>
+                      <UserMinus className="h-3.5 w-3.5" />
                     </Button>
-                  ) : (
-                    <Button size="sm" variant="ghost" onClick={() => demote(mem)}>{m.set_member()}</Button>
-                  )}
-                  <Button size="sm" variant="ghost" className="text-red" onClick={() => removeMember(mem)} title={m.set_remove_member()}>
-                    <UserMinus className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>

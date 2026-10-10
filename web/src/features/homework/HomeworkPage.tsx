@@ -113,6 +113,7 @@ export default function HomeworkPage() {
         onClose={() => setEd({ open: false })}
         classId={classId}
         subjects={detail.subjects}
+        schedule={detail.schedule}
         editing={ed.editing}
         canPost={canPost}
         maxMb={config?.maxUploadMb ?? 25}

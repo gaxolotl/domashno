@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS homework (
   title TEXT NOT NULL,
   body TEXT,
   due_date TEXT NOT NULL,
+  due_period INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -136,6 +137,10 @@ if (!classColumns.includes('source_url')) {
 const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
 if (!userColumns.includes('email_verified')) {
   db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
+}
+const hwColumns = db.prepare('PRAGMA table_info(homework)').all().map((c) => c.name);
+if (!hwColumns.includes('due_period')) {
+  db.exec('ALTER TABLE homework ADD COLUMN due_period INTEGER');
 }
 
 const now = () => new Date().toISOString();
@@ -350,20 +355,21 @@ export const homework = {
   },
   byId: (id) => hydrateHomework(db.prepare('SELECT * FROM homework WHERE id = ?').get(id)),
   raw: (id) => db.prepare('SELECT * FROM homework WHERE id = ?').get(id),
-  create: ({ classId, subjectId, createdBy, title, body, dueDate }) => {
+  create: ({ classId, subjectId, createdBy, title, body, dueDate, duePeriod = null }) => {
     const id = newId();
     db.prepare(`INSERT INTO homework
-      (id,class_id,subject_id,created_by,title,body,due_date,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?)`)
-      .run(id, classId, subjectId ?? null, createdBy, title, body ?? null, dueDate, now(), now());
+      (id,class_id,subject_id,created_by,title,body,due_date,due_period,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`)
+      .run(id, classId, subjectId ?? null, createdBy, title, body ?? null, dueDate, duePeriod ?? null, now(), now());
     return homework.byId(id);
   },
-  update: (id, { subjectId, title, body, dueDate }) => {
+  update: (id, { subjectId, title, body, dueDate, duePeriod }) => {
     const h = homework.raw(id);
     if (!h) return null;
-    db.prepare('UPDATE homework SET subject_id = ?, title = ?, body = ?, due_date = ?, updated_at = ? WHERE id = ?')
+    db.prepare('UPDATE homework SET subject_id = ?, title = ?, body = ?, due_date = ?, due_period = ?, updated_at = ? WHERE id = ?')
       .run(subjectId === undefined ? h.subject_id : subjectId, title ?? h.title,
-        body === undefined ? h.body : body, dueDate ?? h.due_date, now(), id);
+        body === undefined ? h.body : body, dueDate ?? h.due_date,
+        duePeriod === undefined ? h.due_period : duePeriod, now(), id);
     return homework.byId(id);
   },
   remove: (id) => db.prepare('DELETE FROM homework WHERE id = ?').run(id),

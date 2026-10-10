@@ -37,6 +37,7 @@ const homeworkView = (h) => ({
   title: h.title,
   body: h.body,
   due_date: h.due_date,
+  due_period: h.due_period ?? null,
   created_at: h.created_at,
   updated_at: h.updated_at,
   subject: h.subject,
@@ -383,9 +384,17 @@ apiRouter.post('/classes/:id/homework', requireAuth, requireMembership('id'), wr
     title,
     body: req.body?.body != null ? String(req.body.body) : null,
     dueDate: due,
+    duePeriod: parsePeriod(req.body?.due_period),
   });
   res.status(201).json({ homework: homeworkView(created) });
 });
+
+/** Accept 0..12 or null. Returns null for anything unusable. */
+function parsePeriod(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 && n <= 12 ? n : null;
+}
 
 function homeworkForWrite(req, res) {
   const hw = homework.raw(req.params.id);
@@ -424,6 +433,9 @@ apiRouter.patch('/homework/:id', requireAuth, (req, res) => {
   }
   if (req.body?.subject_id !== undefined) {
     patch.subjectId = req.body.subject_id ? String(req.body.subject_id) : null;
+  }
+  if (req.body?.due_period !== undefined) {
+    patch.duePeriod = parsePeriod(req.body.due_period);
   }
   res.json({ homework: homeworkView(homework.update(hw.id, patch)) });
 });
