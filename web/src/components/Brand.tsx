@@ -5,7 +5,7 @@ export function Logo({ size = 28, className }: { size?: number; className?: stri
       <rect x="24" y="15" width="52" height="70" rx="9" fill="#FFFFFF" />
       <rect x="67" y="20" width="20" height="21" rx="6" fill="#C7E86B" />
       <path
-        d="M32 62 L42 73 L61 49"
+        d="M34 64 L44 75 L63 51"
         fill="none"
         stroke="#1E7A4C"
         strokeWidth="9"

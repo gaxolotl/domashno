@@ -49,9 +49,9 @@ function render(size, { bleed = false } = {}) {
   const tile = bleed ? [0, 0, 100, 100, 0] : [3, 3, 97, 97, 26];
   const page = [24, 15, 76, 85, 9];
   const tab = [67, 20, 87, 41, 6];
-  const A = [32, 62];
-  const B = [42, 73];
-  const C = [61, 49];
+  const A = [34, 64];
+  const B = [44, 75];
+  const C = [63, 51];
   const strokeHalf = (9 / 2) * u;
 
   for (let y = 0; y < size; y++) {
@@ -137,7 +137,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <rect x="3" y="3" width="94" height="94" rx="26" fill="#1E7A4C"/>
   <rect x="24" y="15" width="52" height="70" rx="9" fill="#FFFFFF"/>
   <rect x="67" y="20" width="20" height="21" rx="6" fill="#C7E86B"/>
-  <path d="M32 62 L42 73 L61 49" fill="none" stroke="#1E7A4C" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M34 64 L44 75 L63 51" fill="none" stroke="#1E7A4C" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 fs.writeFileSync(path.resolve(__dirname, '..', 'public', 'favicon.svg'), svg);
 console.log('wrote favicon.svg');
