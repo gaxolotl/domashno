@@ -161,6 +161,12 @@
   "due_legend_lesson": "има час",
   "due_legend_multi": "часа този ден",
 
+  "pwa_title": "Инсталирай Домашно",
+  "pwa_text": "Добави го на началния екран за по-бърз достъп.",
+  "pwa_install": "Инсталирай",
+  "pwa_later": "По-късно",
+  "pwa_never": "Не показвай повече",
+
   "sch_title": "Разписание",
   "sch_subtitle": "Импортирай от Shkolo PDF или редактирай на ръка.",
   "sch_import_title": "Импорт от Shkolo",

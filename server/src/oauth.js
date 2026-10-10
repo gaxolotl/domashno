@@ -79,6 +79,7 @@ async function githubProfile(accessToken) {
 }
 
 router.get('/providers', (_req, res) => {
+  res.set('Cache-Control', 'no-store'); // config can change when keys are added
   res.json({
     google: oauthEnabled('google'),
     github: oauthEnabled('github'),

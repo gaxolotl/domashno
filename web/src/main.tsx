@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { ToastProvider } from './components/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PwaInstallBanner } from './components/PwaInstall';
 import App from './App';
 import './index.css';
 
@@ -20,6 +21,7 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <ToastProvider>
             <App />
+            <PwaInstallBanner />
           </ToastProvider>
         </BrowserRouter>
       </ErrorBoundary>

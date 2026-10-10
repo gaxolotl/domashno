@@ -164,6 +164,7 @@ const pdfUpload = multer({
 /* ---------------------------------- config --------------------------------- */
 
 apiRouter.get('/config', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.json({ maxUploadMb: MAX_UPLOAD_MB, subjectColors: SUBJECT_COLORS });
 });
 

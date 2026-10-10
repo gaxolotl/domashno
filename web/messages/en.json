@@ -161,6 +161,12 @@
   "due_legend_lesson": "has a lesson",
   "due_legend_multi": "lessons that day",
 
+  "pwa_title": "Install Domashno",
+  "pwa_text": "Add it to your home screen for quick access.",
+  "pwa_install": "Install",
+  "pwa_later": "Later",
+  "pwa_never": "Don't show again",
+
   "sch_title": "Timetable",
   "sch_subtitle": "Import from a Shkolo PDF, or edit by hand.",
   "sch_import_title": "Import from Shkolo",

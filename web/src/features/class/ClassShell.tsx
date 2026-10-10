@@ -136,7 +136,7 @@ function ShellLayout({ classId, name, user, children }: { classId: string; name:
         <main className="min-w-0 flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10 lg:pt-8">{children}</main>
       </div>
 
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface lg:hidden">
+      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg lg:hidden">
         <div className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-1.5">
           {items.map(({ to, end, label, icon: Icon }) => (
             <NavLink
