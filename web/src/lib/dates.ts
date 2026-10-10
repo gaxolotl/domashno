@@ -46,7 +46,7 @@ export function startOfWeek(iso: string): string {
 }
 
 export function humanSize(bytes: number): string {
-  if (!bytes) return '';
+  if (!bytes) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
   let i = 0;
   let v = bytes;

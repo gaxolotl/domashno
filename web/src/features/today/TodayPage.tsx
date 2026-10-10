@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, MapPin, Paperclip, Plus, User } from 'lucide-react';
 import { Button, Card, EmptyState, HomeworkGridSkeleton, cn, revealDelay } from '../../components/ui';
@@ -45,7 +45,7 @@ function MiniLesson({
         <>
           <p className="mt-1 truncate text-sm font-semibold text-ink" title={lesson.subject}>{lesson.subject}</p>
           <div className="mt-1 flex items-center justify-between gap-1">
-            <span className="text-xs text-muted tnum">{time || 'â€”'}</span>
+            <span className="text-xs text-muted tnum">{time || '—'}</span>
             <button
               onClick={() => onAdd(lesson)}
               className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface2 text-ink transition-colors hover:bg-primary hover:text-primary-ink"
@@ -57,7 +57,7 @@ function MiniLesson({
           </div>
         </>
       ) : (
-        <p className="mt-2 py-3 text-center text-xs text-muted">â€”</p>
+        <p className="mt-2 py-3 text-center text-xs text-muted">—</p>
       )}
     </div>
   );
@@ -112,7 +112,7 @@ export default function TodayPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-primary">{m.nav_today()} Â· {clock}</p>
+          <p className="text-sm font-medium uppercase tracking-wide text-primary">{m.nav_today()} · {clock}</p>
           <h1 className="mt-1 text-2xl capitalize sm:text-3xl">{formatFullDate(today, getLocale())}</h1>
           <p className="mt-1 text-sm text-muted">{lessons.length} {m.today_lessons()}</p>
         </div>
@@ -140,7 +140,7 @@ export default function TodayPage() {
                 <div className="min-w-0 flex-1 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-primary">{focusLabel}</span>
-                    <span className="text-xs text-muted tnum">{focus.start}â€“{focus.end}</span>
+                    <span className="text-xs text-muted tnum">{focus.start}–{focus.end}</span>
                   </div>
                   <p className="mt-1 truncate text-xl font-bold text-ink">{focus.subject}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -158,9 +158,9 @@ export default function TodayPage() {
 
           {timed.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
-              <MiniLesson label={m.today_prev()} lesson={previous} time={previous ? `${previous.start}â€“${previous.end}` : ''} onAdd={openAdd} />
-              <MiniLesson label={m.today_now()} lesson={current} time={current ? `${current.start}â€“${current.end}` : ''} onAdd={openAdd} active />
-              <MiniLesson label={m.today_next()} lesson={next} time={next ? `${next.start}â€“${next.end}` : ''} onAdd={openAdd} />
+              <MiniLesson label={m.today_prev()} lesson={previous} time={previous ? `${previous.start}–${previous.end}` : ''} onAdd={openAdd} />
+              <MiniLesson label={m.today_now()} lesson={current} time={current ? `${current.start}–${current.end}` : ''} onAdd={openAdd} active />
+              <MiniLesson label={m.today_next()} lesson={next} time={next ? `${next.start}–${next.end}` : ''} onAdd={openAdd} />
             </div>
           )}
 
@@ -180,7 +180,7 @@ export default function TodayPage() {
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
                           {lesson.teacher && <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{lesson.teacher}</span>}
                           {lesson.room && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{lesson.room}</span>}
-                          {lesson.start && <span className="tnum">{lesson.start}â€“{lesson.end}</span>}
+                          {lesson.start && <span className="tnum">{lesson.start}–{lesson.end}</span>}
                         </div>
                       </div>
                       <button

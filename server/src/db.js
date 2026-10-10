@@ -143,6 +143,14 @@ CREATE TABLE IF NOT EXISTS login_events (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_login_events_user ON login_events(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS schools (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  domain TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_schools_name ON schools(name COLLATE NOCASE);
 `;
 
 db.exec(SCHEMA);
@@ -160,6 +168,7 @@ if (!userColumns.includes('banned_at')) db.exec('ALTER TABLE users ADD COLUMN ba
 if (!userColumns.includes('ban_reason')) db.exec('ALTER TABLE users ADD COLUMN ban_reason TEXT');
 if (!userColumns.includes('last_seen_at')) db.exec('ALTER TABLE users ADD COLUMN last_seen_at TEXT');
 if (!classColumns.includes('features')) db.exec('ALTER TABLE classes ADD COLUMN features TEXT');
+if (!classColumns.includes('school_id')) db.exec('ALTER TABLE classes ADD COLUMN school_id TEXT');
 const hwColumns = db.prepare('PRAGMA table_info(homework)').all().map((c) => c.name);
 if (!hwColumns.includes('due_period')) {
   db.exec('ALTER TABLE homework ADD COLUMN due_period INTEGER');
@@ -595,12 +604,50 @@ export const adminUsers = {
 
 export const adminClasses = {
   list: (q = '') => db.prepare(`
-    SELECT c.*, u.name AS owner_name, u.email AS owner_email,
+    SELECT c.*, u.name AS owner_name, u.email AS owner_email, sc.name AS school_name,
       (SELECT COUNT(*) FROM members m WHERE m.class_id = c.id) AS members,
       (SELECT COUNT(*) FROM homework h WHERE h.class_id = c.id) AS homework,
       (SELECT COUNT(*) FROM subjects s WHERE s.class_id = c.id) AS subjects
-    FROM classes c JOIN users u ON u.id = c.owner_id
+    FROM classes c
+    JOIN users u ON u.id = c.owner_id
+    LEFT JOIN schools sc ON sc.id = c.school_id
     ${q ? 'WHERE lower(c.name) LIKE ?' : ''}
     ORDER BY c.created_at DESC LIMIT 200
   `).all(...(q ? [`%${q.toLowerCase()}%`] : [])),
+};
+
+/* --------------------------------- schools -------------------------------- */
+
+export const schools = {
+  list: () => db.prepare(`
+    SELECT s.*, (SELECT COUNT(*) FROM classes c WHERE c.school_id = s.id) AS classes
+    FROM schools s ORDER BY s.name COLLATE NOCASE
+  `).all(),
+  byId: (id) => db.prepare('SELECT * FROM schools WHERE id = ?').get(id),
+  byName: (name) => db.prepare('SELECT * FROM schools WHERE name = ? COLLATE NOCASE').get(name),
+  create: ({ name, domain = null }) => {
+    const id = newId();
+    db.prepare('INSERT INTO schools (id,name,domain,created_at) VALUES (?,?,?,?)')
+      .run(id, sanitizeText(name), domain ? sanitizeText(domain) : null, now());
+    return schools.byId(id);
+  },
+  update: (id, { name, domain }) => {
+    const s = schools.byId(id);
+    if (!s) return null;
+    db.prepare('UPDATE schools SET name = ?, domain = ? WHERE id = ?')
+      .run(name === undefined ? s.name : sanitizeText(name), domain === undefined ? s.domain : (domain ? sanitizeText(domain) : null), id);
+    return schools.byId(id);
+  },
+  remove: (id) => {
+    db.prepare('UPDATE classes SET school_id = NULL WHERE school_id = ?').run(id);
+    db.prepare('DELETE FROM schools WHERE id = ?').run(id);
+  },
+  setClassSchool: (classId, schoolId) =>
+    db.prepare('UPDATE classes SET school_id = ? WHERE id = ?').run(schoolId ?? null, classId),
+  /** Find a school by name, creating it when missing. Empty name → null (unlink). */
+  findOrCreate: (name) => {
+    const clean = sanitizeText(name);
+    if (!clean) return null;
+    return schools.byName(clean) || schools.create({ name: clean });
+  },
 };

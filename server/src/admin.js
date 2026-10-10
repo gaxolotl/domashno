@@ -3,7 +3,7 @@
 import express from 'express';
 import { requireAdmin } from './auth.js';
 import {
-  users, admin as adminDb, adminUsers, adminClasses, classes,
+  users, admin as adminDb, adminUsers, adminClasses, classes, schools,
   loginEvents, stats, parseFeatures, DEFAULT_FEATURES,
 } from './db.js';
 import { badRequest, notFound, wrap, sanitizeText } from './util.js';
@@ -41,6 +41,7 @@ const classView = (c) => ({
   subjects: c.subjects,
   created_at: c.created_at,
   features: parseFeatures(c),
+  school: c.school_id && c.school_name ? { id: c.school_id, name: c.school_name } : null,
 });
 
 /* ---------------------------------- stats --------------------------------- */
@@ -144,6 +145,11 @@ adminRoutes.patch('/classes/:id', wrap(async (req, res) => {
   }
   if (req.body?.new_invite) classes.regenerateInvite(cls.id);
 
+  if (req.body?.school !== undefined) {
+    const sc = req.body.school ? schools.findOrCreate(String(req.body.school)) : null;
+    schools.setClassSchool(cls.id, sc?.id ?? null);
+  }
+
   if (req.body?.features !== undefined) {
     const merged = { ...parseFeatures(cls), ...(req.body.features || {}) };
     const upload = merged.upload_mb === null || merged.upload_mb === '' ? null : Number(merged.upload_mb);
@@ -179,4 +185,37 @@ adminRoutes.get('/logins', (req, res) => {
 
 adminRoutes.get('/features', (_req, res) => {
   res.json({ defaults: DEFAULT_FEATURES });
+});
+
+/* --------------------------------- schools -------------------------------- */
+
+adminRoutes.get('/schools', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ schools: schools.list() });
+});
+
+adminRoutes.post('/schools', wrap(async (req, res) => {
+  const name = sanitizeText(req.body?.name);
+  if (!name) return badRequest(res, 'School name is required');
+  if (schools.byName(name)) return badRequest(res, 'That school already exists');
+  res.status(201).json({ school: schools.create({ name, domain: req.body?.domain }) });
+}));
+
+adminRoutes.patch('/schools/:id', wrap(async (req, res) => {
+  const school = schools.byId(req.params.id);
+  if (!school) return notFound(res, 'School not found');
+  const name = req.body?.name !== undefined ? sanitizeText(req.body.name) : undefined;
+  if (name !== undefined) {
+    if (!name) return badRequest(res, 'School name cannot be empty');
+    const clash = schools.byName(name);
+    if (clash && clash.id !== school.id) return badRequest(res, 'That name is already used');
+  }
+  res.json({ school: schools.update(school.id, { name, domain: req.body?.domain }) });
+}));
+
+adminRoutes.delete('/schools/:id', (req, res) => {
+  const school = schools.byId(req.params.id);
+  if (!school) return notFound(res, 'School not found');
+  schools.remove(school.id);
+  res.json({ ok: true });
 });

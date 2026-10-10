@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Copy, Crown, KeyRound, LogOut, Plus, ShieldCheck, ShieldOff, Trash2, UserMinus } from 'lucide-react';
+import { Check, Copy, Crown, KeyRound, LogOut, Plus, School, ShieldCheck, ShieldOff, Trash2, UserMinus } from 'lucide-react';
 import { Avatar, Badge, Button, Card, Field, Input, Modal, Segmented, cn, useToast } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';
 import { TimetableSection } from '../schedule/TimetableSection';
@@ -146,8 +146,13 @@ export default function SettingsPage() {
             )}
           </div>
         </Field>
-        {(detail.class.features?.official || detail.class.features?.featured || detail.class.features?.read_only) && (
-          <div className="flex flex-wrap gap-1.5">
+        {(detail.class.school || detail.class.features?.official || detail.class.features?.featured || detail.class.features?.read_only) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {detail.class.school && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted">
+                <School className="h-3.5 w-3.5" /> {detail.class.school.name}
+              </span>
+            )}
             {detail.class.features?.official && <Badge className="bg-primary-soft text-primary">{m.badge_official()}</Badge>}
             {detail.class.features?.featured && <Badge className="bg-accent/25 text-accent-ink">{m.badge_featured()}</Badge>}
             {detail.class.features?.read_only && <Badge className="bg-red/10 text-red">{m.class_read_only()}</Badge>}

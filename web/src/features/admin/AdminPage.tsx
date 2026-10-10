@@ -83,7 +83,7 @@ export default function AdminPage() {
 
 /* ---------------------------------- stats --------------------------------- */
 
-function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+function StatCard({ label, value, hint }: { label: string; value: string | number; hint?: React.ReactNode }) {
   return (
     <Card className="p-3.5">
       <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
@@ -101,8 +101,17 @@ function StatsTab() {
   return (
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <StatCard label={m.admin_tab_users()} value={s.users} hint={`${s.verified} ✓ · ${s.banned} ⛔`} />
-        <StatCard label={m.admin_tab_classes()} value={s.classes} hint={`${s.subjects} subjects · ${s.slots} lessons`} />
+        <StatCard
+          label={m.admin_tab_users()}
+          value={s.users}
+          hint={
+            <span className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-0.5"><Check className="h-3 w-3" />{s.verified}</span>
+              <span className="inline-flex items-center gap-0.5"><Ban className="h-3 w-3" />{s.banned}</span>
+            </span>
+          }
+        />
+        <StatCard label={m.admin_tab_classes()} value={s.classes} hint={`${s.subjects} · ${s.slots}`} />
         <StatCard label={m.admin_homework()} value={s.homework} hint={`${s.attachments} ${m.admin_attachments().toLowerCase()}`} />
         <StatCard label={m.admin_storage()} value={humanSize(s.storageBytes)} />
         <StatCard label={m.admin_sessions()} value={s.activeSessions} />
@@ -128,7 +137,8 @@ function StatsTab() {
               <li key={c.id} className="flex items-center gap-2 px-4 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate font-medium text-ink">{c.name}</span>
                 <span className="truncate text-xs text-muted">{c.owner}</span>
-                <span className="shrink-0 text-xs text-muted tnum">{c.members} 👤 · {c.homework} 📚</span>
+                <span className="shrink-0 text-xs text-muted tnum"><span className="inline-flex items-center gap-0.5"><UsersIcon className="h-3.5 w-3.5" />{c.members}</span>
+                    <span className="inline-flex items-center gap-0.5"><ListChecks className="h-3.5 w-3.5" />{c.homework}</span></span>
               </li>
             ))}
           </ul>
@@ -333,7 +343,8 @@ function UserModal({ id, onClose }: { id: string; onClose: () => void }) {
                   <li key={c.id} className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm">
                     <span className="min-w-0 flex-1 truncate">{c.name}</span>
                     {c.role === 'owner' && <Badge className="bg-accent/25 text-accent-ink">{m.admin_owner()}</Badge>}
-                    <span className="text-xs text-muted tnum">{c.members} 👤 · {c.homework} 📚</span>
+                    <span className="text-xs text-muted tnum"><span className="inline-flex items-center gap-0.5"><UsersIcon className="h-3.5 w-3.5" />{c.members}</span>
+                    <span className="inline-flex items-center gap-0.5"><ListChecks className="h-3.5 w-3.5" />{c.homework}</span></span>
                   </li>
                 ))}
               </ul>
@@ -396,9 +407,12 @@ function ClassesTab() {
                   {c.features.featured && <Badge className="bg-accent/25 text-accent-ink">{m.badge_featured()}</Badge>}
                   {c.features.read_only && <Badge className="bg-red/10 text-red">{m.admin_read_only()}</Badge>}
                 </span>
-                <span className="block truncate text-xs text-muted">{c.owner_name} · {c.owner_email}</span>
+                <span className="block truncate text-xs text-muted">
+                  {c.school ? `${c.school.name} · ` : ''}{c.owner_name} · {c.owner_email}
+                </span>
               </span>
-              <span className="text-xs text-muted tnum">{c.members} 👤 · {c.homework} 📚 · {c.subjects} ∫</span>
+              <span className="text-xs text-muted tnum"><span className="inline-flex items-center gap-0.5"><UsersIcon className="h-3.5 w-3.5" />{c.members}</span>
+                    <span className="inline-flex items-center gap-0.5"><ListChecks className="h-3.5 w-3.5" />{c.homework}</span>                    <span className="inline-flex items-center gap-0.5"><LayoutList className="h-3.5 w-3.5" />{c.subjects}</span></span>
             </button>
           ))}
           {data && data.classes.length === 0 && <p className="px-4 py-8 text-center text-sm text-muted">{m.hw_none()}</p>}
@@ -414,10 +428,12 @@ function ClassModal({ id, onClose }: { id: string; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const { data } = useQuery({ queryKey: ['admin', 'classes'], queryFn: () => api.adminClasses('') });
+  const schoolsQ = useQuery({ queryKey: ['admin', 'schools'], queryFn: api.adminSchools });
   const cls: AdminClass | undefined = data?.classes.find((c) => c.id === id);
 
   const [name, setName] = useState('');
   const [policy, setPolicy] = useState<'everyone' | 'restricted'>('everyone');
+  const [school, setSchool] = useState('');
   const [upload, setUpload] = useState('');
   const [readOnly, setReadOnly] = useState(false);
   const [featured, setFeatured] = useState(false);
@@ -427,6 +443,7 @@ function ClassModal({ id, onClose }: { id: string; onClose: () => void }) {
     if (!cls) return;
     setName(cls.name);
     setPolicy(cls.post_policy);
+    setSchool(cls.school?.name ?? '');
     setUpload(cls.features.upload_mb == null ? '' : String(cls.features.upload_mb));
     setReadOnly(cls.features.read_only);
     setFeatured(cls.features.featured);
@@ -466,7 +483,7 @@ function ClassModal({ id, onClose }: { id: string; onClose: () => void }) {
             <Button
               variant="primary"
               loading={patch.isPending}
-              onClick={() => patch.mutate({ name, post_policy: policy, features })}
+              onClick={() => patch.mutate({ name, post_policy: policy, school: school.trim(), features })}
             >
               {m.common_save()}
             </Button>
@@ -490,6 +507,19 @@ function ClassModal({ id, onClose }: { id: string; onClose: () => void }) {
               <option value="restricted">{m.set_restricted()}</option>
             </Select>
           </Field>
+
+          <Field label={m.admin_school()} hint={m.admin_school_hint()}>
+            <Input
+              list="admin-schools"
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              placeholder="СУ „Иван Вазов“"
+              className="font-normal"
+            />
+          </Field>
+          <datalist id="admin-schools">
+            {(schoolsQ.data?.schools ?? []).map((s) => <option key={s.id} value={s.name} />)}
+          </datalist>
 
           <div className="space-y-3 rounded-xl border border-line p-3">
             <p className="text-sm font-medium text-muted">{m.admin_features()}</p>

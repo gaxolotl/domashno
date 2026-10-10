@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button, Card, EmptyState, cn, revealDelay } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';
@@ -24,7 +24,7 @@ export default function WeekPage() {
 
   const [ed, setEd] = useState<{ open: boolean; subjectId?: string | null; date?: string; editing?: Homework | null }>({ open: false });
 
-  // Which weekday columns to show: Monâ€“Fri, plus any used weekend days.
+  // Which weekday columns to show: Mon–Fri, plus any used weekend days.
   const usedDays = useMemo(() => {
     const set = new Set(detail.schedule.map((s) => s.day));
     const max = Math.max(5, ...set);
@@ -47,7 +47,7 @@ export default function WeekPage() {
         <div>
           <h1 className="text-2xl">{m.week_title()}</h1>
           <p className="mt-1 text-sm text-muted tnum">
-            {formatDayMonth(monday, getLocale())} â€” {formatDayMonth(sunday, getLocale())}
+            {formatDayMonth(monday, getLocale())} — {formatDayMonth(sunday, getLocale())}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -90,7 +90,7 @@ export default function WeekPage() {
                       <span className="h-6 w-1 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium leading-tight text-ink">{lesson.subject}</span>
-                        <span className="block font-mono text-[10px] text-muted">{lesson.start}â€“{lesson.end}</span>
+                        <span className="block font-mono text-[10px] text-muted">{lesson.start}–{lesson.end}</span>
                       </span>
                       {count > 0 && (
                         <span className="grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">{count}</span>

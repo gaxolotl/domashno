@@ -5,7 +5,7 @@ import multer from 'multer';
 import { UPLOAD_DIR, MAX_UPLOAD_MB } from './env.js';
 import {
   users, classes, members, subjects, slots, homework, attachments,
-  subjectPerms, canPostFor, parseFeatures, loginEvents, SUBJECT_COLORS,
+  subjectPerms, canPostFor, parseFeatures, loginEvents, schools, SUBJECT_COLORS,
 } from './db.js';
 import { requireAuth, requireMembership, isOwner, isAdmin } from './auth.js';
 import { publicUser } from './oauth.js';
@@ -70,6 +70,7 @@ const slotView = (slot, subjectMap) => {
 };
 
 function classView(cls, role) {
+  const school = cls.school_id ? schools.byId(cls.school_id) : null;
   return {
     id: cls.id,
     name: cls.name,
@@ -78,6 +79,7 @@ function classView(cls, role) {
     post_policy: cls.post_policy,
     source_url: cls.source_url || null,
     features: parseFeatures(cls),
+    school: school ? { id: school.id, name: school.name } : null,
     created_at: cls.created_at,
     can_manage: role === 'owner',
   };

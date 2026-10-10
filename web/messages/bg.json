@@ -224,6 +224,8 @@
   "admin_featured": "Препоръчан",
   "admin_official": "Официален",
   "admin_new_invite": "Нов код",
+  "admin_school": "Училище",
+  "admin_school_hint": "Въведи име, за да свържеш класа с училище (създава се автоматично).",
   "admin_member_of": "Член на",
   "admin_not_admin": "Нямаш достъп до админ панела.",
   "badge_official": "Официален",

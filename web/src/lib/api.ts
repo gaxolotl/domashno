@@ -67,6 +67,15 @@ export interface AdminClass {
   subjects: number;
   created_at: string;
   features: ClassFeatures;
+  school: { id: string; name: string } | null;
+}
+
+export interface School {
+  id: string;
+  name: string;
+  domain: string | null;
+  classes: number;
+  created_at: string;
 }
 
 export interface AdminStats {
@@ -97,6 +106,7 @@ export interface ClassSummary {
   post_policy: 'everyone' | 'restricted';
   source_url: string | null;
   features?: ClassFeatures;
+  school?: { id: string; name: string } | null;
   created_at: string;
   can_manage?: boolean;
   member_count?: number;
@@ -296,8 +306,13 @@ export const api = {
   adminDeleteUser: (id: string, force = false) =>
     request<{ ok: true }>(`/admin/users/${id}${force ? '?force=1' : ''}`, { method: 'DELETE' }),
   adminClasses: (q = '') => request<{ classes: AdminClass[] }>(`/admin/classes${q ? `?q=${encodeURIComponent(q)}` : ''}`),
-  adminUpdateClass: (id: string, patch: Partial<{ name: string; post_policy: 'everyone' | 'restricted'; new_invite: boolean; features: Partial<ClassFeatures> }>) =>
+  adminUpdateClass: (id: string, patch: Partial<{ name: string; post_policy: 'everyone' | 'restricted'; new_invite: boolean; features: Partial<ClassFeatures>; school: string | null }>) =>
     request<{ class: AdminClass }>(`/admin/classes/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   adminDeleteClass: (id: string) => request<{ ok: true }>(`/admin/classes/${id}`, { method: 'DELETE' }),
+  adminSchools: () => request<{ schools: School[] }>('/admin/schools'),
+  adminCreateSchool: (name: string, domain?: string) => request<{ school: School }>('/admin/schools', json({ name, domain })),
+  adminUpdateSchool: (id: string, patch: { name?: string; domain?: string | null }) =>
+    request<{ school: School }>(`/admin/schools/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  adminDeleteSchool: (id: string) => request<{ ok: true }>(`/admin/schools/${id}`, { method: 'DELETE' }),
   adminLogins: (limit = 60) => request<{ logins: LoginEvent[] }>(`/admin/logins?limit=${limit}`),
 };

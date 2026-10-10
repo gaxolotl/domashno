@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button, EmptyState, HomeworkGridSkeleton, Segmented, Select } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';

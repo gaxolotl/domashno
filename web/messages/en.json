@@ -224,6 +224,8 @@
   "admin_featured": "Featured",
   "admin_official": "Official",
   "admin_new_invite": "New code",
+  "admin_school": "School",
+  "admin_school_hint": "Type a name to link this class to a school (created automatically).",
   "admin_member_of": "Member of",
   "admin_not_admin": "You don't have access to the admin panel.",
   "badge_official": "Official",
