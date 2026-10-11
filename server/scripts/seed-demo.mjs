@@ -47,7 +47,7 @@ function upsertUser(email, name) {
   return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
 }
 
-const owner = upsertUser(OWNER_EMAIL, 'Георги Гърдев');
+const owner = upsertUser(OWNER_EMAIL, 'Никола Стоянов');
 const peer = upsertUser(PEER_EMAIL, 'Преслав Колев');
 
 // fresh demo class each run
@@ -64,16 +64,28 @@ db.prepare(`INSERT INTO classes (id,name,owner_id,invite_code,post_policy,source
 db.prepare('INSERT INTO members (class_id,user_id,role,created_at) VALUES (?,?,?,?)').run(classId, owner.id, 'owner', nowIso());
 db.prepare('INSERT INTO members (class_id,user_id,role,created_at) VALUES (?,?,?,?)').run(classId, peer.id, 'member', nowIso());
 
+// link the demo class to a (fictional) school
+const SCHOOL = 'СУ „Христо Ботев“';
+let school = db.prepare('SELECT id FROM schools WHERE name = ? COLLATE NOCASE').get(SCHOOL);
+if (!school) {
+  const sid = uid();
+  db.prepare('INSERT INTO schools (id,name,domain,created_at) VALUES (?,?,?,?)').run(sid, SCHOOL, null, nowIso());
+  school = { id: sid };
+}
+db.prepare('UPDATE classes SET school_id = ? WHERE id = ?').run(school.id, classId);
+
 /* -------------------------------- timetable ------------------------------- */
 
 const today = new Date();
 const todayDay = ((today.getDay() + 6) % 7) + 1; // 1=Mon … 7=Sun
 
 // three lessons around the current time so "NOW" lights up right away
+// three lessons around the current time so "NOW" lights up right away.
+// (Teacher is left to the subject's own teacher — no names hardcoded here.)
 const live = [
-  { period: 1, subject: 'Мат', teacher: 'Венета Т. Кюркова', room: 'к-т 23 (Етаж 3)', start: hhmm(at(-70)), end: hhmm(at(-25)) },
-  { period: 2, subject: 'БЕЛ', teacher: 'Веселин П. Кюмюрджиев', room: 'к-т 13 (Етаж 1)', start: hhmm(at(-20)), end: hhmm(at(+25)) },
-  { period: 3, subject: 'Физика и астр', teacher: 'Кети П. Маринова', room: 'к-т 22 (Етаж 3)', start: hhmm(at(+35)), end: hhmm(at(+80)) },
+  { period: 1, subject: 'Мат', room: 'к-т 23 (Етаж 3)', start: hhmm(at(-70)), end: hhmm(at(-25)) },
+  { period: 2, subject: 'БЕЛ', room: 'к-т 13 (Етаж 1)', start: hhmm(at(-20)), end: hhmm(at(+25)) },
+  { period: 3, subject: 'Физика и астр', room: 'к-т 22 (Етаж 3)', start: hhmm(at(+35)), end: hhmm(at(+80)) },
 ];
 
 const allSlots = [
@@ -247,7 +259,7 @@ console.log(`  Клас:       7 А   (invite ${invite})`);
 console.log(`  Дни:        ${sample7a.slots.length + live.length} часа в разписанието`);
 console.log(`  Днес:       ${todayDay} — ${live.map((l) => `${l.subject} ${l.start}`).join(', ')}`);
 console.log(`  Домашни:    5 (две за днес, с прикачени файлове)`);
-console.log(`  Членове:    Георги Гърдев (собственик), Преслав Колев\n`);
+console.log(`  Членове:    Никола Стоянов (собственик), Преслав Колев\n`);
 console.log(`  ВХОД: на /login натисни „Developer sign-in“ и въведи:`);
-console.log(`        име:    Георги Гърдев`);
+console.log(`        име:    Никола Стоянов`);
 console.log(`        имейл:  ${OWNER_EMAIL}\n`);

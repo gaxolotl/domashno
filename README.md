@@ -67,9 +67,8 @@ and automatic HTTPS. Build with `npm run build`, run with `npm start`.
 |---|---|---|
 | ![Today](web/branding/shots/today.jpg) | ![Week](web/branding/shots/week.jpg) | ![Homework](web/branding/shots/homework.jpg) |
 
-Admin panel (stats, users, bans, login fingerprints, class features):
-
-![Admin](web/branding/shots/admin.jpg)
+The sample class, teachers and members in these screenshots are **fictional**
+(see `server/scripts/seed-demo.mjs`).
 
 Branding sources live in [`web/branding/`](web/branding/README.md).
 

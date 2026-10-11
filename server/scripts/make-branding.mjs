@@ -1,9 +1,13 @@
-// Branding image generator — renders the promo art as vector SVG and rasterises it
-// with sharp, so text stays perfectly crisp (no screenshot/JPEG round-trip).
+// Branding image generator.
 //
 //   node scripts/make-branding.mjs
 //
-// Outputs docs/*.png (for the README) and web/public/branding/*.png (served, og:image).
+// The art is authored as vector SVG and rasterised with sharp, so every glyph is
+// crisp. Embedded app screenshots are pre-scaled (Lanczos) to exactly the pixel
+// size they are drawn at, so the renderer never resamples them — that is what
+// keeps the phone mock-ups sharp.
+//
+// Outputs docs/*.png (README / GitHub) and web/public/branding/*.png (served, og:image).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,15 +24,15 @@ const INK = '#14231C';
 const MUTED = '#5C6E63';
 const BG = '#EEF2EC';
 const LIME = '#C7E86B';
-const LINE = '#D5DED4';
 const WHITE = '#FFFFFF';
 
-const FONT = "'Segoe UI', 'Segoe UI Semibold', Arial, Helvetica, sans-serif";
+const FONT = "'Segoe UI', Arial, Helvetica, sans-serif";
+
+/** Output scale — 1.4 is crisp on retina while screenshots stay ~1:1. */
+const SCALE = 1.4;
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const b64 = (p) => fs.readFileSync(p).toString('base64');
-const dataUri = (p) => `data:image/png;base64,${b64(p)}`;
-const shotUri = (name) => `data:image/jpeg;base64,${b64(path.join(SHOTS, name))}`;
+const dataUri = (p) => `data:image/png;base64,${fs.readFileSync(p).toString('base64')}`;
 
 const rrect = ({ x, y, w, h, r = 0, fill, opacity = 1 }) =>
   `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}"${opacity !== 1 ? ` opacity="${opacity}"` : ''}/>`;
@@ -38,8 +42,7 @@ const text = (x, y, size, content, { weight = 400, fill = INK, spacing = 0, anch
   `${spacing ? ` letter-spacing="${spacing}"` : ''}${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}` +
   `${opacity !== 1 ? ` opacity="${opacity}"` : ''}>${esc(content)}</text>`;
 
-/** grid of faint lines, like graph paper / a chalkboard */
-const grid = (w, h, color, opacity = 0.06) => `
+const grid = (w, h, color, opacity = 0.05) => `
   <defs>
     <pattern id="pgrid" width="30" height="30" patternUnits="userSpaceOnUse">
       <path d="M 30 0 L 0 0 0 30" fill="none" stroke="${color}" stroke-width="1" stroke-opacity="${opacity}"/>
@@ -47,39 +50,87 @@ const grid = (w, h, color, opacity = 0.06) => `
   </defs>
   <rect x="0" y="0" width="${w}" height="${h}" fill="url(#pgrid)"/>`;
 
-/** a phone mock-up with an embedded screenshot */
-const phone = (id, x, y, w, screen, rotate = 0) => {
+/* ------------------------- text measurement (exact) ------------------------ */
+
+const measureCache = new Map();
+
+/** Measure the ink box of a string so padding can be exact (SVG has no layout). */
+async function measureText(str, size, weight = 400, spacing = 0) {
+  const key = `${size}|${weight}|${spacing}|${str}`;
+  if (measureCache.has(key)) return measureCache.get(key);
+  const pad = 60;
+  const W = Math.ceil(size * (str.length + 2) * 0.75) + pad * 2;
+  const H = Math.ceil(size * 2.4);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    <text x="${pad}" y="${Math.round(size * 1.7)}" font-family="${FONT}" font-size="${size}" font-weight="${weight}"${spacing ? ` letter-spacing="${spacing}"` : ''} fill="#000">${esc(str)}</text>
+  </svg>`;
+  const { data, info } = await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let minX = info.width;
+  let maxX = -1;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      if (data[(y * info.width + x) * 4 + 3] > 24) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+      }
+    }
+  }
+  const res = maxX < 0 ? { width: 0, left: 0 } : { width: maxX - minX + 1, left: minX - pad };
+  measureCache.set(key, res);
+  return res;
+}
+
+/* --------------------------- screenshots (exact) --------------------------- */
+
+const shotCache = new Map();
+
+/** Resize a shot to the exact device pixels it will occupy, so no resampling happens. */
+async function prepareShot(file, phoneWidth) {
+  const pad = Math.round(phoneWidth * 0.03);
+  const dispW = phoneWidth - pad * 2;
+  const deviceWidth = Math.round(dispW * SCALE);
+  const key = `${file}@${deviceWidth}`;
+  if (shotCache.has(key)) return shotCache.get(key);
+  const buf = await sharp(path.join(SHOTS, file))
+    .resize({ width: deviceWidth, kernel: 'lanczos3' })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+  const meta = await sharp(buf).metadata();
+  const res = { uri: `data:image/png;base64,${buf.toString('base64')}`, w: meta.width, h: meta.height };
+  shotCache.set(key, res);
+  return res;
+}
+
+/** A phone mock-up containing a prepared screenshot. */
+function phone(id, x, y, w, p, rotate = 0) {
   const pad = Math.round(w * 0.03);
-  const inner = w - pad * 2;
-  const h = Math.round((screen.h / screen.w) * inner);
-  const bezel = h + pad * 2;
+  const dispW = w - pad * 2;
+  const dispH = dispW * (p.h / p.w);
+  const bezel = dispH + pad * 2;
   const rad = Math.round(w * 0.115);
-  const img = screen.uri;
-  return `
-  <g transform="translate(${x} ${y})${rotate ? ` rotate(${rotate} ${w / 2} ${bezel / 2})` : ''}">
+  return `<g transform="translate(${x} ${y})${rotate ? ` rotate(${rotate} ${w / 2} ${bezel / 2})` : ''}">
     <rect x="4" y="10" width="${w}" height="${bezel}" rx="${rad}" fill="#000000" opacity="0.22"/>
     <rect x="0" y="0" width="${w}" height="${bezel}" rx="${rad}" fill="#0d1512"/>
-    <clipPath id="${id}"><rect x="${pad}" y="${pad}" width="${inner}" height="${h}" rx="${rad - pad}"/></clipPath>
-    <image x="${pad}" y="${pad}" width="${inner}" height="${h}" href="${img}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>
+    <clipPath id="${id}"><rect x="${pad}" y="${pad}" width="${dispW}" height="${dispH}" rx="${rad - pad}"/></clipPath>
+    <image x="${pad}" y="${pad}" width="${dispW}" height="${dispH}" href="${p.uri}" preserveAspectRatio="none" clip-path="url(#${id})"/>
   </g>`;
-};
+}
 
-const shot = (name) => ({ uri: shotUri(name), w: 390, h: 844 });
+/* ---------------------------------- frames --------------------------------- */
 
-/* ------------------------------------------------------------------ banner */
-
-function bannerSvg() {
+async function bannerSvg() {
   const W = 1440;
   const H = 360;
-  const pills = ['Импорт от Shkolo PDF', 'Домашни с файлове', 'Работи като приложение'];
+  const PADX = 22;
   let pillsX = 292;
-  const pillEls = pills.map((p) => {
-    const w = 36 + p.length * 9.6;
-    const el = rrect({ x: pillsX, y: 254, w: Math.round(w), h: 46, r: 23, fill: WHITE, opacity: 0.16 })
-      + text(pillsX + 18, 284, 19, p, { fill: WHITE, weight: 500, opacity: 0.95 });
-    pillsX += Math.round(w) + 14;
-    return el;
-  }).join('');
+  let pills = '';
+  for (const p of ['Импорт от Shkolo PDF', 'Домашни с файлове', 'Работи като приложение']) {
+    const m = await measureText(p, 19, 500);
+    const w = Math.round(m.width + PADX * 2);
+    pills += rrect({ x: pillsX, y: 254, w, h: 46, r: 23, fill: WHITE, opacity: 0.16 });
+    pills += text(pillsX + PADX - m.left, 285, 19, p, { fill: WHITE, weight: 500, opacity: 0.95 });
+    pillsX += w + 14;
+  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${rrect({ x: 0, y: 0, w: W, h: H, fill: GREEN })}
@@ -88,13 +139,11 @@ function bannerSvg() {
   <image x="92" y="112" width="150" height="150" href="${dataUri(path.join(ICONS, 'icon-192.png'))}"/>
   ${text(292, 176, 100, 'Домашно', { weight: 700, fill: WHITE, spacing: -3 })}
   ${text(294, 234, 32, 'Разписание и домашни за класа', { fill: WHITE, opacity: 0.92 })}
-  ${pillEls}
+  ${pills}
 </svg>`;
 }
 
-/* ------------------------------------------------------------------ social */
-
-function socialSvg() {
+async function socialSvg() {
   const W = 1440;
   const H = 720;
   const bullets = [
@@ -103,27 +152,29 @@ function socialSvg() {
     'Домашни с текст, снимки, PDF и презентации',
     'Класове с код за покана и права за публикуване',
   ];
-  const bulletEls = bullets.map((b, i) => {
+  let els = '';
+  bullets.forEach((b, i) => {
     const y = 366 + i * 56;
-    return rrect({ x: 84, y: y - 26, w: 36, h: 36, r: 11, fill: LIME })
-      + text(102, y, 19, String(i + 1), { weight: 700, fill: INK, anchor: 'middle' })
-      + text(136, y, 22, b, { fill: WHITE, opacity: 0.96 });
-  }).join('');
+    els += rrect({ x: 84, y: y - 26, w: 36, h: 36, r: 11, fill: LIME });
+    els += text(102, y, 19, String(i + 1), { weight: 700, fill: INK, anchor: 'middle' });
+    els += text(136, y, 22, b, { fill: WHITE, opacity: 0.96 });
+  });
+
+  const today = await prepareShot('today.jpg', 300);
+  const week = await prepareShot('week.jpg', 300);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${rrect({ x: 0, y: 0, w: W, h: H, fill: GREEN })}
   ${grid(W, H, '#ffffff', 0.05)}
   ${text(84, 250, 84, 'Домашно', { weight: 700, fill: WHITE, spacing: -3 })}
   ${text(86, 306, 30, 'Разписание и домашни за класа', { fill: WHITE, opacity: 0.92 })}
-  ${bulletEls}
-  ${phone('pB', 1128, 78, 300, shot('week.jpg'), 4)}
-  ${phone('pA', 880, 44, 300, shot('today.jpg'), 0)}
+  ${els}
+  ${phone('pB', 1128, 78, 300, week, 4)}
+  ${phone('pA', 880, 44, 300, today, 0)}
 </svg>`;
 }
 
-/* ------------------------------------------------------------------- promo */
-
-function promoSvg() {
+async function promoSvg() {
   const W = 1440;
   const H = 810;
   const feats = [
@@ -131,30 +182,31 @@ function promoSvg() {
     ['Всичко на едно място', 'Снимки, PDF, презентации и документи с преглед в приложението.'],
     ['Светла и тъмна тема', 'Български и английски, инсталира се на телефона.'],
   ];
-  const featEls = feats.map(([title, sub], i) => {
+  let els = '';
+  feats.forEach(([title, sub], i) => {
     const y = 520 + i * 84;
-    return rrect({ x: 84, y: y - 34, w: 44, h: 44, r: 13, fill: GREEN })
-      + text(106, y - 4, 19, String(i + 1), { weight: 700, fill: WHITE, anchor: 'middle' })
-      + text(146, y - 8, 21, title, { weight: 700, fill: INK })
-      + text(146, y + 20, 16, sub, { fill: MUTED });
-  }).join('');
+    els += rrect({ x: 84, y: y - 34, w: 44, h: 44, r: 13, fill: GREEN });
+    els += text(106, y - 4, 19, String(i + 1), { weight: 700, fill: WHITE, anchor: 'middle' });
+    els += text(146, y - 8, 21, title, { weight: 700, fill: INK });
+    els += text(146, y + 20, 16, sub, { fill: MUTED });
+  });
+
+  const homework = await prepareShot('homework.jpg', 292);
+  const week = await prepareShot('week.jpg', 300);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${rrect({ x: 0, y: 0, w: W, h: H, fill: BG })}
   ${rrect({ x: 84, y: 96, w: 232, h: 40, r: 20, fill: WHITE })}
-  ${rrect({ x: 84, y: 96, w: 232, h: 40, r: 20, fill: 'none' })}
   ${text(112, 122, 16, 'Разписание + домашни', { weight: 700, fill: GREEN })}
   ${text(84, 230, 62, 'Целият клас знае', { weight: 700, fill: INK, spacing: -2 })}
   ${text(84, 302, 62, 'какво е за утре', { weight: 700, fill: GREEN, spacing: -2 })}
   ${text(86, 356, 22, 'Качете PDF-а от Shkolo, прегледайте разписанието и всеки', { fill: MUTED })}
   ${text(86, 388, 22, 'може да добавя домашно с файлове — за точната дата и час.', { fill: MUTED })}
-  ${featEls}
-  ${phone('pL', 858, 96, 292, shot('homework.jpg'), -4)}
-  ${phone('pR', 1070, 54, 300, shot('week.jpg'), 0)}
+  ${els}
+  ${phone('pL', 858, 96, 292, homework, -4)}
+  ${phone('pR', 1070, 54, 300, week, 0)}
 </svg>`;
 }
-
-/* ------------------------------------------------------------------ lockup */
 
 function lockupSvg() {
   const W = 720;
@@ -167,13 +219,13 @@ function lockupSvg() {
 </svg>`;
 }
 
-/* ------------------------------------------------------------------ render */
+/* ---------------------------------- render --------------------------------- */
 
 const jobs = [
-  { name: 'banner', svg: bannerSvg(), scale: 2 },
-  { name: 'social-preview', svg: socialSvg(), scale: 2 },
-  { name: 'promo', svg: promoSvg(), scale: 2 },
-  { name: 'logo-lockup', svg: lockupSvg(), scale: 2 },
+  { name: 'banner', svg: await bannerSvg() },
+  { name: 'social-preview', svg: await socialSvg() },
+  { name: 'promo', svg: await promoSvg() },
+  { name: 'logo-lockup', svg: lockupSvg() },
 ];
 
 const docs = path.join(ROOT, 'docs');
@@ -182,10 +234,10 @@ fs.mkdirSync(docs, { recursive: true });
 fs.mkdirSync(publicBranding, { recursive: true });
 
 for (const j of jobs) {
-  const meta = /width="(\d+)" height="(\d+)"/.exec(j.svg);
-  const w = Number(meta[1]) * j.scale;
-  const h = Number(meta[2]) * j.scale;
-  const buf = await sharp(Buffer.from(j.svg), { density: 72 * j.scale })
+  const m = /width="(\d+)" height="(\d+)"/.exec(j.svg);
+  const w = Math.round(Number(m[1]) * SCALE);
+  const h = Math.round(Number(m[2]) * SCALE);
+  const buf = await sharp(Buffer.from(j.svg), { density: 72 * SCALE })
     .resize(w, h)
     .png({ compressionLevel: 9 })
     .toBuffer();
