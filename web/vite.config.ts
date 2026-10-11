@@ -39,6 +39,8 @@ export default defineConfig({
         // Cache hashed assets, but always fetch the HTML shell from the network
         // so a new deploy shows up right away (falls back to cache offline).
         globPatterns: ['**/*.{js,css,svg,png,woff2}'],
+        // branding/ is only for social previews — keep it out of the precache
+        globIgnores: ['**/branding/**'],
         navigateFallback: null,
         cleanupOutdatedCaches: true,
         clientsClaim: true,

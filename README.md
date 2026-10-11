@@ -1,3 +1,5 @@
+![Домашно — разписание и домашни за класа](docs/banner.png)
+
 # Домашно
 
 Timetable + homework board for a school class. Import the weekly timetable from a
@@ -56,6 +58,20 @@ and automatic HTTPS. Build with `npm run build`, run with `npm start`.
 4. **Class** → copy the **invite code** and share it with your classmates.
 5. **Today** → tap the **+** next to a lesson to add homework; attach files; **Save**.
 6. **Class** → choose who may post homework: *everyone*, or *chosen people per subject*.
+
+## Screenshots
+
+![Домашно — promo](docs/promo.png)
+
+| Днес (Now) | Разписание | Домашни |
+|---|---|---|
+| ![Today](web/branding/shots/today.jpg) | ![Week](web/branding/shots/week.jpg) | ![Homework](web/branding/shots/homework.jpg) |
+
+Admin panel (stats, users, bans, login fingerprints, class features):
+
+![Admin](web/branding/shots/admin.jpg)
+
+Branding sources live in [`web/branding/`](web/branding/README.md).
 
 ## Project layout
 
