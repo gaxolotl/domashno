@@ -1,7 +1,5 @@
 ![Домашно — разписание и домашни за класа](docs/banner.png)
 
-# Домашно
-
 Timetable + homework board for a school class. Import the weekly timetable from a
 **Shkolo PDF**, then let classmates post homework with files. Installs as an app (PWA).
 
