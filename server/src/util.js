@@ -1,4 +1,4 @@
-import { randomUUID, randomBytes } from 'node:crypto';
+import { randomUUID, randomBytes, randomInt } from 'node:crypto';
 
 export const newId = () => randomUUID();
 export const newToken = () => randomBytes(32).toString('base64url');
@@ -6,9 +6,9 @@ export const newToken = () => randomBytes(32).toString('base64url');
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1
 
 export function newInviteCode(length = 6) {
-  const bytes = randomBytes(length);
+  // randomInt() is uniform over [0, n), so there is no modulo bias.
   let out = '';
-  for (let i = 0; i < length; i++) out += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
+  for (let i = 0; i < length; i++) out += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   return out;
 }
 

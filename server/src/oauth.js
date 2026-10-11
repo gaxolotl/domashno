@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import express from 'express';
 import { Google, GitHub } from 'arctic';
-import { OAUTH, IS_PROD, callbackUrl, oauthEnabled, ENABLE_DEV_LOGIN } from './env.js';
+import { OAUTH, callbackUrl, oauthEnabled, ENABLE_DEV_LOGIN } from './env.js';
 import { users, sessions } from './db.js';
 import {
   signValue, verifyValue, setSessionCookie, clearSessionCookie, startLogin, isAdmin,
@@ -91,7 +91,10 @@ router.get('/:provider/start', oauthStartLimit, (req, res) => {
   res.cookie(STATE_COOKIE, signValue({ state, codeVerifier, provider }), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: IS_PROD,
+    // This cookie carries the PKCE verifier, so it must never leave the TLS
+    // channel. OAuth always runs over HTTPS (localhost counts as a secure
+    // context), so `Secure` can be unconditional.
+    secure: true,
     maxAge: 10 * 60 * 1000,
     path: '/',
   });
