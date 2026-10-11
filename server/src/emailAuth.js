@@ -13,6 +13,7 @@ export const emailAuthRoutes = express.Router();
 // Per-IP throttles. (Plus a per-address limit and an hourly global budget below.)
 const startByIp = rateLimit({ name: 'email-start', windowMs: 15 * 60_000, max: 8 });
 const verifyByIp = rateLimit({ name: 'email-verify', windowMs: 15 * 60_000, max: 40 });
+const linkByIp = rateLimit({ name: 'email-link', windowMs: 15 * 60_000, max: 60 });
 
 // Rolling one-hour cap on how many verification emails we send at all.
 let hourBudget = { start: Date.now(), count: 0 };
@@ -110,7 +111,7 @@ emailAuthRoutes.post('/email/verify', verifyByIp, wrap(async (req, res) => {
 }));
 
 /** One-tap sign-in from the email link. */
-emailAuthRoutes.get('/email/link', (req, res) => {
+emailAuthRoutes.get('/email/link', linkByIp, (req, res) => {
   const id = String(req.query.id || '');
   const t = String(req.query.t || '');
   const row = id ? emailTokens.byId(id) : null;

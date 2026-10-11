@@ -11,16 +11,21 @@ import { emailAuthRoutes } from './emailAuth.js';
 import { apiRouter } from './api.js';
 import { adminRoutes } from './admin.js';
 import { rateLimit } from './rateLimit.js';
+import { issueCsrf, requireCsrf } from './csrf.js';
 
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1); // we sit behind Caddy/nginx which sets X-Forwarded-For
 app.use(express.json({ limit: '3mb' }));
 app.use(cookieParser());
-app.use(attachUser);
 
-// Coarse per-IP ceiling for the whole API (individual routes add their own).
-app.use('/api', rateLimit({ name: 'api', windowMs: 10 * 60_000, max: 2000 }));
+// Coarse per-IP ceiling for *every* request (routes add their own tighter limits).
+app.use(rateLimit({ name: 'global', windowMs: 60_000, max: 600 }));
+
+// CSRF: give everyone a token, then require it on state-changing API calls.
+app.use(issueCsrf);
+app.use(attachUser);
+app.use('/api', requireCsrf);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', emailAuthRoutes);

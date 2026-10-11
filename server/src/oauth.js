@@ -15,13 +15,6 @@ const oauthStartLimit = rateLimit({ name: 'oauth-start', windowMs: 15 * 60_000, 
 const devLoginLimit = rateLimit({ name: 'dev-login', windowMs: 15 * 60_000, max: 10 });
 
 const STATE_COOKIE = 'domashno_oauth';
-const stateCookieOptions = () => ({
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: IS_PROD,
-  maxAge: 10 * 60 * 1000,
-  path: '/',
-});
 
 function providers() {
   const list = {};
@@ -78,7 +71,7 @@ async function githubProfile(accessToken) {
   return { providerUserId: String(p.id), name: p.name || p.login, email, avatar: p.avatar_url };
 }
 
-router.get('/providers', (_req, res) => {
+router.get('/providers', rateLimit({ name: 'providers', windowMs: 60_000, max: 120 }), (_req, res) => {
   res.set('Cache-Control', 'no-store'); // config can change when keys are added
   res.json({
     google: oauthEnabled('google'),
@@ -95,7 +88,13 @@ router.get('/:provider/start', oauthStartLimit, (req, res) => {
   }
   const state = crypto.randomUUID();
   const codeVerifier = crypto.randomUUID() + crypto.randomUUID();
-  res.cookie(STATE_COOKIE, signValue({ state, codeVerifier, provider }), stateCookieOptions());
+  res.cookie(STATE_COOKIE, signValue({ state, codeVerifier, provider }), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: IS_PROD,
+    maxAge: 10 * 60 * 1000,
+    path: '/',
+  });
 
   const url = provider === 'google'
     ? client.createAuthorizationURL(state, codeVerifier, ['openid', 'email', 'profile'])
@@ -104,7 +103,7 @@ router.get('/:provider/start', oauthStartLimit, (req, res) => {
   res.redirect(url.toString());
 });
 
-router.get('/:provider/callback', wrap(async (req, res) => {
+router.get('/:provider/callback', oauthStartLimit, wrap(async (req, res) => {
   const provider = req.params.provider;
   const client = providers()[provider];
   if (!client || !['google', 'github'].includes(provider)) return badRequest(res, 'Unknown provider');

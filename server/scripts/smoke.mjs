@@ -3,10 +3,17 @@ import fs from 'node:fs';
 
 const BASE = process.env.BASE || 'http://localhost:8787';
 let cookie = '';
+const csrf = () => (cookie.match(/domashno_csrf=([^;]+)/) || [])[1] || '';
 const req = async (path, opts = {}) => {
+  const method = (opts.method || 'GET').toUpperCase();
+  if (method !== 'GET' && !csrf()) await req('/api/health'); // warm the CSRF cookie first
   const res = await fetch(BASE + path, {
     ...opts,
-    headers: { ...(opts.headers || {}), ...(cookie ? { Cookie: cookie } : {}) },
+    headers: {
+      ...(opts.headers || {}),
+      ...(method !== 'GET' ? { 'X-CSRF-Token': csrf() } : {}),
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
   });
   const setc = res.headers.getSetCookie?.() || [];
   if (setc.length) cookie = setc.map((c) => c.split(';')[0]).join('; ');

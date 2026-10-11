@@ -2,8 +2,19 @@
 const BASE = process.env.BASE || 'http://localhost:8787';
 const pretty = (o) => JSON.stringify(o);
 
+// CSRF (double-submit): warm a token, then send it back as a header on writes.
+const warm = await fetch(`${BASE}/api/health`);
+const csrfSet = (warm.headers.getSetCookie?.() || []).find((c) => c.startsWith('domashno_csrf=')) || '';
+const csrfCookie = csrfSet ? csrfSet.split(';')[0] : '';
+const csrfToken = csrfCookie ? decodeURIComponent(csrfCookie.split('=')[1]) : '';
+const jsonHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+  ...(csrfCookie ? { Cookie: csrfCookie } : {}),
+});
+
 const start = await fetch(`${BASE}/api/auth/email/start`, {
-  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  method: 'POST', headers: jsonHeaders(),
   body: JSON.stringify({ email: 'verify-test@example.com', name: 'Проверка', locale: 'bg' }),
 });
 const s = await start.json();
@@ -14,14 +25,14 @@ if (!code) { console.error('FAIL: expected devCode with console provider'); proc
 
 // wrong code
 const bad = await fetch(`${BASE}/api/auth/email/verify`, {
-  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  method: 'POST', headers: jsonHeaders(),
   body: JSON.stringify({ email: 'verify-test@example.com', code: '000000' === code ? '111111' : '000000' }),
 });
 console.log('verify(wrong) →', bad.status, pretty(await bad.json()));
 
 // right code
 const ok = await fetch(`${BASE}/api/auth/email/verify`, {
-  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  method: 'POST', headers: jsonHeaders(),
   body: JSON.stringify({ email: 'verify-test@example.com', code }),
 });
 const cookie = (ok.headers.getSetCookie?.() || []).map((c) => c.split(';')[0]).join('; ');

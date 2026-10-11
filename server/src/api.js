@@ -21,6 +21,7 @@ export const apiRouter = express.Router();
 const uploadLimiter = rateLimit({ name: 'upload', windowMs: 10 * 60_000, max: 80 });
 const importLimiter = rateLimit({ name: 'import', windowMs: 10 * 60_000, max: 20 });
 const writeLimiter = rateLimit({ name: 'write', windowMs: 60_000, max: 60 });
+const fileLimiter = rateLimit({ name: 'files', windowMs: 60_000, max: 600 });
 
 /* ------------------------------- serializers ------------------------------- */
 
@@ -442,7 +443,7 @@ apiRouter.get('/homework/:id', requireAuth, (req, res) => {
   res.json({ homework: homeworkView(homework.byId(hw.id)) });
 });
 
-apiRouter.patch('/homework/:id', requireAuth, (req, res) => {
+apiRouter.patch('/homework/:id', requireAuth, writeLimiter, (req, res) => {
   const hw = homeworkForWrite(req, res);
   if (!hw) return;
   const patch = {};
@@ -465,7 +466,7 @@ apiRouter.patch('/homework/:id', requireAuth, (req, res) => {
   res.json({ homework: homeworkView(homework.update(hw.id, patch)) });
 });
 
-apiRouter.delete('/homework/:id', requireAuth, (req, res) => {
+apiRouter.delete('/homework/:id', requireAuth, writeLimiter, (req, res) => {
   const hw = homeworkForWrite(req, res);
   if (!hw) return;
   for (const a of attachments.listByHomework(hw.id)) {
@@ -503,7 +504,7 @@ apiRouter.post('/homework/:id/attachments', requireAuth, uploadLimiter, attachme
   res.status(201).json({ attachments: created.map(attachmentView) });
 });
 
-apiRouter.delete('/attachments/:id', requireAuth, (req, res) => {
+apiRouter.delete('/attachments/:id', requireAuth, writeLimiter, (req, res) => {
   const att = attachments.byId(req.params.id);
   if (!att) return notFound(res, 'File not found');
   const hw = homework.raw(att.homework_id);
@@ -519,7 +520,7 @@ apiRouter.delete('/attachments/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-apiRouter.get('/files/:id', requireAuth, wrap(async (req, res) => {
+apiRouter.get('/files/:id', requireAuth, fileLimiter, wrap(async (req, res) => {
   const att = attachments.byId(req.params.id);
   if (!att) return notFound(res, 'File not found');
   const hw = homework.raw(att.homework_id);

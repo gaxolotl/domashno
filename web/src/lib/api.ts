@@ -193,12 +193,21 @@ export class ApiError extends Error {
   }
 }
 
+/** Read the readable CSRF cookie set by the server (double-submit pattern). */
+function csrfToken(): string {
+  if (typeof document === 'undefined') return '';
+  const m = document.cookie.match(/(?:^|;\s*)domashno_csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
   const res = await fetch(`/api${path}`, {
     credentials: 'same-origin',
     ...options,
     headers: {
       ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+      ...(method !== 'GET' && method !== 'HEAD' ? { 'X-CSRF-Token': csrfToken() } : {}),
       ...(options.headers || {}),
     },
   });
