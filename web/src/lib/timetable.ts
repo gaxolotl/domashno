@@ -28,6 +28,15 @@ export function nextLessonDate(schedule: Slot[], subjectId: string | null, fromI
   return null;
 }
 
+/**
+ * First date strictly after `afterISO` on which the subject has a lesson.
+ * "Homework for the next lesson" is due at the *following* occurrence of the
+ * subject, not on a day it was already taught.
+ */
+export function nextLessonAfter(schedule: Slot[], subjectId: string | null, afterISO: string): string | null {
+  return nextLessonDate(schedule, subjectId, addDays(afterISO, 1));
+}
+
 export function isWeekend(iso: string): boolean {
   return isoWeekday(iso) >= 6;
 }

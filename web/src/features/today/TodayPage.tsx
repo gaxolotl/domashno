@@ -7,6 +7,7 @@ import { HomeworkEditor } from '../homework/HomeworkEditor';
 import { HomeworkCard } from '../homework/HomeworkCard';
 import { useConfig, useDeleteHomework, useHomework, useMe } from '../../lib/hooks';
 import { formatFullDate, isoWeekday, todayISO } from '../../lib/dates';
+import { nextLessonAfter } from '../../lib/timetable';
 import type { Homework, Slot } from '../../lib/api';
 import { getLocale } from '../../paraglide/runtime';
 import { m } from '../../paraglide/messages';
@@ -100,7 +101,13 @@ export default function TodayPage() {
   const canEdit = (h: Homework) =>
     canPost(h.subject?.id ?? null) || Boolean(me.data?.user?.id && h.author?.id === me.data.user.id);
 
-  const openAdd = (lesson: Slot) => setEd({ open: true, date: today, subjectId: lesson.subject_id ?? null });
+  // "Add homework" from a lesson (the before / now / next cards, the header and
+  // the day list) defaults the due date to the subject's *next* lesson — the
+  // homework is for when the class next has that subject, not for today.
+  const dueDateFor = (lesson: Slot | null) =>
+    nextLessonAfter(detail.schedule, lesson?.subject_id ?? null, today) ?? today;
+  const openAdd = (lesson: Slot) =>
+    setEd({ open: true, date: dueDateFor(lesson), subjectId: lesson.subject_id ?? null });
   const colorOf = (l: Slot) => l.color || subjectColor(l.subject_id ?? null);
 
   // The lesson the user most likely wants to add homework for right now.
@@ -116,7 +123,7 @@ export default function TodayPage() {
           <h1 className="mt-1 text-2xl capitalize sm:text-3xl">{formatFullDate(today, getLocale())}</h1>
           <p className="mt-1 text-sm text-muted">{lessons.length} {m.today_lessons()}</p>
         </div>
-        <Button variant="primary" onClick={() => setEd({ open: true, date: today, subjectId: focus?.subject_id ?? null })}>
+        <Button variant="primary" onClick={() => setEd({ open: true, date: dueDateFor(focus), subjectId: focus?.subject_id ?? null })}>
           <Plus className="h-4 w-4" />
           {m.today_add_homework()}
         </Button>
