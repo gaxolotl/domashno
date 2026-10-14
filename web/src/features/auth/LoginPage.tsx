@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Github, Mail, ShieldCheck } from 'lucide-react';
 import { Button, Card, Field, Input } from '../../components/ui';
@@ -83,6 +83,42 @@ export default function LoginPage() {
     setToken(null);
     tsRef.current?.reset();
     tsDevRef.current?.reset();
+  };
+
+  // Turnstile load state: when the widget cannot load (blocked CDN, no
+  // connection), show an explanatory box with a retry instead of nothing.
+  const [tsFailed, setTsFailed] = useState(false);
+  const [tsAttempt, setTsAttempt] = useState(0);
+  const renderTs = (ref: RefObject<TurnstileHandle>) => {
+    if (!siteKey) return null;
+    if (tsFailed) {
+      return (
+        <div className="rounded-xl border border-line bg-surface2 px-4 py-3 text-center">
+          <p className="text-sm text-muted">{m.auth_turnstile_unavailable()}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setTsFailed(false);
+              setTsAttempt((a) => a + 1);
+            }}
+            className="mt-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            {m.common_retry()}
+          </button>
+        </div>
+      );
+    }
+    return (
+      <Turnstile
+        key={tsAttempt}
+        ref={ref}
+        siteKey={siteKey}
+        onToken={setToken}
+        onStatus={(s) => {
+          if (s === 'failed') setTsFailed(true);
+        }}
+      />
+    );
   };
 
   const sendCode = async () => {
@@ -195,10 +231,6 @@ export default function LoginPage() {
           <Card className="p-6">
             {step === 'email' ? (
               <>
-                <div className="mb-5 space-y-4">
-                  {consentBox}
-                  {siteKey && <Turnstile ref={tsRef} siteKey={siteKey} onToken={setToken} />}
-                </div>
                 {hasOAuth && (
                   <div className="space-y-2.5">
                     {providerInfo?.google && (
@@ -239,6 +271,8 @@ export default function LoginPage() {
                       autoFocus
                     />
                   </Field>
+                  {consentBox}
+                  {renderTs(tsRef)}
                   <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
                     <Mail className="h-4 w-4" />
                     {m.auth_send_code()}
@@ -268,11 +302,11 @@ export default function LoginPage() {
                   />
                 </Field>
 
+                {renderTs(tsRef)}
                 <Button variant="primary" size="lg" className="w-full" loading={busy} onClick={() => verify()}>
                   <ShieldCheck className="h-4 w-4" />
                   {m.auth_code_verify()}
                 </Button>
-                {siteKey && <Turnstile ref={tsRef} siteKey={siteKey} onToken={setToken} />}
 
                 <p className="text-center text-xs text-muted">{m.auth_code_expire({ min: '10' })}</p>
 
@@ -299,7 +333,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {error && <p className="mt-4 text-sm text-red">{error}</p>}
+            {error && <p className="mt-4 text-center text-sm text-red">{error}</p>}
           </Card>
 
           {providerInfo?.dev && (
@@ -314,7 +348,7 @@ export default function LoginPage() {
                     <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
                   </Field>
                   {consentBox}
-                  {siteKey && <Turnstile ref={tsDevRef} siteKey={siteKey} onToken={setToken} />}
+                  {renderTs(tsDevRef)}
                   <Button type="submit" variant="secondary" className="w-full" loading={busy}>{m.auth_signin()}</Button>
                 </form>
               ) : (

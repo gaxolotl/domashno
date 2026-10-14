@@ -1,13 +1,13 @@
 // Cloudflare Turnstile widget (explicit render).
 // Renders nothing when no site key is configured (bot check disabled).
+// Reports loading trouble via onStatus so the page can show a retry
+// instead of an invisible empty box (e.g. when a blocker stops the CDN).
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { getLocale } from '../../paraglide/runtime';
 
 interface TurnstileRenderOptions {
   sitekey: string;
   theme?: 'auto' | 'light' | 'dark';
-  language?: string;
   callback?: (token: string) => void;
   'expired-callback'?: () => void;
   'error-callback'?: () => void;
@@ -51,64 +51,82 @@ export interface TurnstileHandle {
   reset: () => void;
 }
 
-const Turnstile = forwardRef<TurnstileHandle, { siteKey: string | null | undefined; onToken: (t: string | null) => void }>(
-  function Turnstile({ siteKey, onToken }, ref) {
-    const divRef = useRef<HTMLDivElement>(null);
-    const widgetId = useRef<string | null>(null);
-    const onTokenRef = useRef(onToken);
-    onTokenRef.current = onToken;
+export type TurnstileStatus = 'loading' | 'ready' | 'failed';
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        reset: () => {
-          try {
-            if (widgetId.current && window.turnstile) window.turnstile.reset(widgetId.current);
-          } catch {
-            /* ignore */
-          }
-          onTokenRef.current(null);
-        },
-      }),
-      [],
-    );
+const Turnstile = forwardRef<
+  TurnstileHandle,
+  { siteKey: string | null | undefined; onToken: (t: string | null) => void; onStatus?: (s: TurnstileStatus) => void }
+>(function Turnstile({ siteKey, onToken, onStatus }, ref) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const widgetId = useRef<string | null>(null);
+  const statusRef = useRef<TurnstileStatus>('loading');
+  const onTokenRef = useRef(onToken);
+  onTokenRef.current = onToken;
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
 
-    useEffect(() => {
-      if (!siteKey) return;
-      let alive = true;
-      loadScript()
-        .then(() => {
-          if (!alive || !divRef.current || !window.turnstile || widgetId.current) return;
-          try {
-            widgetId.current = window.turnstile.render(divRef.current, {
-              sitekey: siteKey,
-              theme: 'auto',
-              language: getLocale() === 'bg' ? 'bg' : 'en',
-              callback: (t: string) => onTokenRef.current(t),
-              'expired-callback': () => onTokenRef.current(null),
-              'error-callback': () => onTokenRef.current(null),
-            });
-          } catch {
-            /* widget unavailable — the form stays blocked until it loads */
-          }
-        })
-        .catch(() => {
-          /* offline / blocked CDN — token simply never arrives */
-        });
-      return () => {
-        alive = false;
+  const setStatus = (s: TurnstileStatus) => {
+    statusRef.current = s;
+    onStatusRef.current?.(s);
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      reset: () => {
         try {
-          if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
+          if (widgetId.current && window.turnstile) window.turnstile.reset(widgetId.current);
         } catch {
           /* ignore */
         }
-        widgetId.current = null;
-      };
-    }, [siteKey]);
+        onTokenRef.current(null);
+      },
+    }),
+    [],
+  );
 
-    if (!siteKey) return null;
-    return <div ref={divRef} className="flex justify-center" />;
-  },
-);
+  useEffect(() => {
+    if (!siteKey) return;
+    let alive = true;
+    statusRef.current = 'loading';
+    onStatusRef.current?.('loading');
+    // If the script hangs (no load, no error), say so after a while.
+    const watchdog = setTimeout(() => {
+      if (alive && statusRef.current === 'loading') setStatus('failed');
+    }, 15000);
+    loadScript()
+      .then(() => {
+        if (!alive || !divRef.current || !window.turnstile || widgetId.current) return;
+        try {
+          widgetId.current = window.turnstile.render(divRef.current, {
+            sitekey: siteKey,
+            theme: 'auto',
+            callback: (t: string) => onTokenRef.current(t),
+            'expired-callback': () => onTokenRef.current(null),
+            'error-callback': () => onTokenRef.current(null),
+          });
+          setStatus('ready');
+        } catch {
+          setStatus('failed');
+        }
+      })
+      .catch(() => {
+        if (alive) setStatus('failed');
+      });
+    return () => {
+      alive = false;
+      clearTimeout(watchdog);
+      try {
+        if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
+      } catch {
+        /* ignore */
+      }
+      widgetId.current = null;
+    };
+  }, [siteKey]);
+
+  if (!siteKey) return null;
+  return <div ref={divRef} className="flex min-h-[65px] items-center justify-center" />;
+});
 
 export default Turnstile;

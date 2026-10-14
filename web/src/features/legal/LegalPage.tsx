@@ -1,5 +1,6 @@
 // Public Terms of Service / Privacy Policy page (no login required).
 
+import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Card } from '../../components/ui';
@@ -16,13 +17,49 @@ function contactFallback(locale: string) {
     : 'the administrator of this server (the person running this installation)';
 }
 
+const linkClass = 'font-medium text-primary hover:underline';
+
+/** Render `[text](https://…)` as real links. Everything else stays plain text. */
+function renderLinks(text: string, keyPrefix: string): ReactNode[] {
+  const re = /\[([^\]]+)\]\((https?:[^)\s]+)\)/g;
+  const out: ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  let mt: RegExpExecArray | null;
+  while ((mt = re.exec(text)) !== null) {
+    if (mt.index > last) out.push(text.slice(last, mt.index));
+    out.push(
+      <a key={`${keyPrefix}-l${i++}`} href={mt[2]} target="_blank" rel="noreferrer" className={linkClass}>
+        {mt[1]}
+      </a>,
+    );
+    last = mt.index + mt[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 export default function LegalPage({ doc }: { doc: 'terms' | 'privacy' }) {
   const locale = getLocale() === 'en' ? 'en' : 'bg';
   const { data: config } = useConfig();
-  const contact = config?.legalContact || contactFallback(locale);
   const d = legal[locale][doc];
-  const fill = (s: string) => s.replaceAll('{contact}', contact);
   const title = doc === 'terms' ? m.legal_terms_title() : m.legal_privacy_title();
+
+  const contactNode: ReactNode = config?.legalContact ? (
+    <a href={`mailto:${config.legalContact}`} className={linkClass}>
+      {config.legalContact}
+    </a>
+  ) : (
+    <span>{contactFallback(locale)}</span>
+  );
+
+  // Fill `{contact}` and render `[text](url)` links.
+  const fill = (s: string, keyPrefix: string): ReactNode[] =>
+    s.split('{contact}').flatMap((part, i, arr) =>
+      i < arr.length - 1
+        ? [...renderLinks(part, `${keyPrefix}-p${i}`), <Fragment key={`${keyPrefix}-c${i}`}>{contactNode}</Fragment>]
+        : renderLinks(part, `${keyPrefix}-p${i}`),
+    );
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -52,7 +89,7 @@ export default function LegalPage({ doc }: { doc: 'terms' | 'privacy' }) {
 
           <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-ink">
             {d.intro.map((p, i) => (
-              <p key={i}>{fill(p)}</p>
+              <p key={i}>{fill(p, `intro-${i}`)}</p>
             ))}
           </div>
 
@@ -61,13 +98,13 @@ export default function LegalPage({ doc }: { doc: 'terms' | 'privacy' }) {
               <h2 className="text-lg font-semibold text-ink">{s.heading}</h2>
               <div className="mt-2 space-y-3 text-[15px] leading-relaxed text-ink">
                 {s.paragraphs.map((p, j) => (
-                  <p key={j}>{fill(p)}</p>
+                  <p key={j}>{fill(p, `s${i}-p${j}`)}</p>
                 ))}
               </div>
               {s.bullets && (
                 <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[15px] leading-relaxed text-ink">
                   {s.bullets.map((b, j) => (
-                    <li key={j}>{fill(b)}</li>
+                    <li key={j}>{fill(b, `s${i}-b${j}`)}</li>
                   ))}
                 </ul>
               )}
@@ -76,7 +113,7 @@ export default function LegalPage({ doc }: { doc: 'terms' | 'privacy' }) {
 
           <div className="mt-7 space-y-3 border-t border-line pt-5 text-[15px] leading-relaxed text-ink">
             {d.outro.map((p, i) => (
-              <p key={i}>{fill(p)}</p>
+              <p key={i}>{fill(p, `outro-${i}`)}</p>
             ))}
           </div>
         </Card>

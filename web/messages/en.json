@@ -42,6 +42,7 @@
   "auth_terms_required": "Please accept the Terms and Privacy Policy to continue.",
   "auth_turnstile_required": "Please complete the security check.",
   "auth_turnstile_failed": "Bot verification failed. Please try again.",
+  "auth_turnstile_unavailable": "The security check couldn't load. Check your connection or ad-blocker and try again.",
   "legal_terms_title": "Terms of Service",
   "legal_privacy_title": "Privacy Policy",
   "legal_updated": "Last updated: {date}",

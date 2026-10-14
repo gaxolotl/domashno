@@ -41,7 +41,7 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
         {
           heading: 'Акаунтът ви',
           paragraphs: [
-            'Влиза се с имейл код, или чрез Google / GitHub, ако са включени. Давайте истинско име, за да ви разпознават съучениците.',
+            'Влиза се с имейл код, или чрез [Google](https://www.google.com) / [GitHub](https://github.com), ако са включени. Давайте истинско име, за да ви разпознават съучениците.',
             'Вие отговаряте за всичко, направено с вашия акаунт. Не давайте кода за вход на класа на външни хора — той е само за вашия клас.',
           ],
         },
@@ -100,11 +100,11 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           heading: 'Какви данни събираме',
           paragraphs: ['Събираме само това, без което приложението не работи:'],
           bullets: [
-            'Акаунт: име, имейл адрес (потвърден с код), профилна снимка — само ако влизате чрез Google или GitHub.',
+            'Акаунт: име, имейл адрес (потвърден с код), профилна снимка — само ако влизате чрез [Google](https://www.google.com) или [GitHub](https://github.com).',
             'Съдържание: домашни, файлове, разписания, класове и членства в тях.',
-            'Технически данни за сигурност: IP адрес, браузър и устройство, час на влизане (видими за администратора в панел „Влизания“).',
+            'Технически данни за сигурност: IP адрес, браузър и устройство, час на влизане.',
             'Бисквитки: сесия за вход и защита от фалшиви заявки (строго необходими), тема и език (запазени във вашия браузър). Рекламни бисквитки няма.',
-            'Проверка за бот при вход (Cloudflare Turnstile): Cloudflare получава IP адреса и технически данни за браузъра, за да различи човек от бот.',
+            'Проверка за бот при вход ([Cloudflare](https://www.cloudflare.com) Turnstile): Cloudflare получава IP адреса и технически данни за браузъра, за да различи човек от бот.',
           ],
         },
         {
@@ -124,9 +124,9 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           ],
           bullets: [
             'сървърът, на който е инсталирано приложението;',
-            'Cloudflare — DNS, защита и проверка за бот (Turnstile);',
-            'Google или GitHub — само ако влизате чрез тях (те потвърждават самоличността ви);',
-            'доставчикът на имейли (Resend или SMTP сървър) — само за изпращане на кодове за вход.',
+            '[Cloudflare](https://www.cloudflare.com) — DNS, защита и проверка за бот (Turnstile);',
+            '[Google](https://www.google.com) или [GitHub](https://github.com) — само ако влизате чрез тях (те потвърждават самоличността ви);',
+            'доставчикът на имейли ([Resend](https://resend.com) или SMTP сървър) — само за изпращане на кодове за вход.',
           ],
         },
         {
@@ -149,7 +149,7 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           paragraphs: [
             'По GDPR имате право на достъп, поправка, изтриване („право да бъдеш забравен“), преносимост, ограничаване и възражение срещу обработването.',
             `За да ги упражните, пишете на ${CONTACT} — отговаряме до един месец.`,
-            'Ако смятате, че правата ви са нарушени, можете да подадете жалба до Комисията за защита на личните данни (България) или до надзорния орган във вашата държава.',
+            'Ако смятате, че правата ви са нарушени, можете да подадете жалба до [Комисията за защита на личните данни](https://www.cpdp.bg) (България) или до надзорния орган във вашата държава.',
           ],
         },
         {
@@ -186,7 +186,7 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
         {
           heading: 'Your account',
           paragraphs: [
-            'You sign in with an email code, or via Google / GitHub where enabled. Please use your real name so classmates recognise you.',
+            'You sign in with an email code, or via [Google](https://www.google.com) / [GitHub](https://github.com) where enabled. Please use your real name so classmates recognise you.',
             'You are responsible for everything done with your account. Do not share your class invite code with outsiders — it is for your class only.',
           ],
         },
@@ -245,11 +245,11 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           heading: 'What data we collect',
           paragraphs: ['We collect only what the app cannot work without:'],
           bullets: [
-            'Account: name, email address (verified with a code), profile picture — only when you sign in via Google or GitHub.',
+            'Account: name, email address (verified with a code), profile picture — only when you sign in via [Google](https://www.google.com) or [GitHub](https://github.com).',
             'Content: homework, files, timetables, classes and memberships.',
-            'Technical security data: IP address, browser and device, sign-in time (visible to the administrator under “Logins”).',
+            'Technical security data: IP address, browser and device, sign-in time.',
             'Cookies: sign-in session and anti-forgery protection (strictly necessary), theme and language (stored in your browser). No advertising cookies.',
-            'Bot check at sign-in (Cloudflare Turnstile): Cloudflare receives the IP address and technical browser data to tell humans from bots.',
+            'Bot check at sign-in ([Cloudflare](https://www.cloudflare.com) Turnstile): Cloudflare receives the IP address and technical browser data to tell humans from bots.',
           ],
         },
         {
@@ -269,9 +269,9 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           ],
           bullets: [
             'the server this app is installed on;',
-            'Cloudflare — DNS, protection and the bot check (Turnstile);',
-            'Google or GitHub — only if you sign in through them (they confirm your identity);',
-            'the email provider (Resend or an SMTP server) — only for sending sign-in codes.',
+            '[Cloudflare](https://www.cloudflare.com) — DNS, protection and the bot check (Turnstile);',
+            '[Google](https://www.google.com) or [GitHub](https://github.com) — only if you sign in through them (they confirm your identity);',
+            'the email provider ([Resend](https://resend.com) or an SMTP server) — only for sending sign-in codes.',
           ],
         },
         {
@@ -294,7 +294,7 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           paragraphs: [
             'Under the GDPR you have the right to access, rectify, erase (“right to be forgotten”), portability, restriction and objection.',
             `To exercise them, write to ${CONTACT} — we reply within one month.`,
-            'If you believe your rights were violated, you can complain to the Commission for Personal Data Protection (Bulgaria) or your national supervisory authority.',
+            'If you believe your rights were violated, you can complain to the [Commission for Personal Data Protection](https://www.cpdp.bg) (Bulgaria) or your national supervisory authority.',
           ],
         },
         {
