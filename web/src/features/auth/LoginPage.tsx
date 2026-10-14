@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Github, Mail, ShieldCheck } from 'lucide-react';
 import { Button, Card, Field, Input } from '../../components/ui';
 import { LanguageControl, ThemeControl } from '../../components/Controls';
 import { Logo } from '../../components/Brand';
 import { api, ApiError } from '../../lib/api';
+import { useConfig } from '../../lib/hooks';
 import { getLocale } from '../../paraglide/runtime';
 import { m } from '../../paraglide/messages';
+import Turnstile, { type TurnstileHandle } from './Turnstile';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -29,6 +31,8 @@ function errorText(code: string): string {
     case 'too_many_requests':
     case 'too_many_attempts': return m.auth_too_many();
     case 'email_failed': return m.auth_email_failed();
+    case 'terms_required': return m.auth_terms_required();
+    case 'turnstile_failed': return m.auth_turnstile_failed();
     default: return m.common_error();
   }
 }
@@ -47,18 +51,48 @@ export default function LoginPage() {
   const [error, setError] = useState(params.get('error') === 'link' ? m.auth_link_invalid() : '');
   const codeRef = useRef<HTMLInputElement>(null);
 
+  // Terms acceptance + bot check (Cloudflare Turnstile, when configured).
+  const [accepted, setAccepted] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const tsRef = useRef<TurnstileHandle>(null);
+  const tsDevRef = useRef<TurnstileHandle>(null);
+  const { data: config } = useConfig();
+  const siteKey = config?.turnstileSiteKey ?? null;
+
   useEffect(() => {
     api.providers().then(setProviders).catch(() => setProviders({ google: false, github: false, dev: false }));
   }, []);
 
   const hasOAuth = Boolean(providerInfo && (providerInfo.google || providerInfo.github));
 
+  /** Every sign-in path requires accepted terms and (when enabled) a fresh bot token. */
+  const gate = () => {
+    if (!accepted) {
+      setError(m.auth_terms_required());
+      return null;
+    }
+    if (siteKey && !token) {
+      setError(m.auth_turnstile_required());
+      return null;
+    }
+    setError('');
+    return { terms: true as const, turnstile: token ?? undefined };
+  };
+
+  const useToken = () => {
+    setToken(null);
+    tsRef.current?.reset();
+    tsDevRef.current?.reset();
+  };
+
   const sendCode = async () => {
     if (!EMAIL_RE.test(email.trim())) return setError(m.auth_email_invalid());
+    const g = gate();
+    if (!g) return;
     setBusy(true);
     setError('');
     try {
-      const res = await api.emailStart(email.trim().toLowerCase(), name.trim(), getLocale());
+      const res = await api.emailStart(email.trim().toLowerCase(), name.trim(), getLocale(), g);
       setDevCode(res.devCode ?? null);
       setStep('code');
       setCode('');
@@ -66,36 +100,74 @@ export default function LoginPage() {
     } catch (e) {
       setError(e instanceof ApiError ? errorText(e.message) : m.common_error());
     } finally {
+      useToken();
       setBusy(false);
     }
   };
 
   const verify = async (value = code) => {
     if (!/^\d{6}$/.test(value)) return setError(m.auth_code_invalid());
+    const g = gate();
+    if (!g) return;
     setBusy(true);
     setError('');
     try {
-      await api.emailVerify(email.trim().toLowerCase(), value);
+      await api.emailVerify(email.trim().toLowerCase(), value, g);
       location.assign('/');
     } catch (e) {
       setError(e instanceof ApiError ? errorText(e.message) : m.common_error());
       setBusy(false);
+    } finally {
+      useToken();
     }
   };
 
   const devLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setError(m.common_required());
+    const g = gate();
+    if (!g) return;
     setBusy(true);
     setError('');
     try {
-      await api.devLogin(name.trim(), email.trim());
+      await api.devLogin(name.trim(), email.trim(), g);
       location.assign('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : m.common_error());
       setBusy(false);
+    } finally {
+      useToken();
     }
   };
+
+  const oauth = (provider: 'google' | 'github') => {
+    const g = gate();
+    if (!g) return;
+    const q = new URLSearchParams({ terms: '1', ...(g.turnstile ? { turnstile: g.turnstile } : {}) });
+    useToken();
+    location.assign(`/api/auth/${provider}/start?${q}`);
+  };
+
+  const consentBox = (
+    <label className="flex cursor-pointer items-start gap-2.5 text-sm text-muted">
+      <input
+        type="checkbox"
+        checked={accepted}
+        onChange={(e) => setAccepted(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+      />
+      <span>
+        {m.auth_terms_prefix()}
+        <Link to="/terms" target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+          {m.auth_terms_link()}
+        </Link>
+        {m.auth_terms_and()}
+        <Link to="/privacy" target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+          {m.auth_privacy_link()}
+        </Link>
+      </span>
+    </label>
+  );
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -123,23 +195,23 @@ export default function LoginPage() {
           <Card className="p-6">
             {step === 'email' ? (
               <>
+                <div className="mb-5 space-y-4">
+                  {consentBox}
+                  {siteKey && <Turnstile ref={tsRef} siteKey={siteKey} onToken={setToken} />}
+                </div>
                 {hasOAuth && (
                   <div className="space-y-2.5">
                     {providerInfo?.google && (
-                      <a href="/api/auth/google/start" className="block">
-                        <Button variant="secondary" size="lg" className="w-full justify-center">
-                          <GoogleIcon />
-                          {m.auth_google()}
-                        </Button>
-                      </a>
+                      <Button variant="secondary" size="lg" className="w-full justify-center" onClick={() => oauth('google')}>
+                        <GoogleIcon />
+                        {m.auth_google()}
+                      </Button>
                     )}
                     {providerInfo?.github && (
-                      <a href="/api/auth/github/start" className="block">
-                        <Button variant="secondary" size="lg" className="w-full justify-center">
-                          <Github className="h-4 w-4" />
-                          {m.auth_github()}
-                        </Button>
-                      </a>
+                      <Button variant="secondary" size="lg" className="w-full justify-center" onClick={() => oauth('github')}>
+                        <Github className="h-4 w-4" />
+                        {m.auth_github()}
+                      </Button>
                     )}
                     <div className="my-5 flex items-center gap-3 text-xs text-muted">
                       <span className="h-px flex-1 bg-line" />
@@ -172,6 +244,11 @@ export default function LoginPage() {
                     {m.auth_send_code()}
                   </Button>
                 </form>
+                <p className="mt-4 text-center text-xs text-muted">
+                  <Link to="/terms" target="_blank" rel="noreferrer" className="hover:underline">{m.auth_terms_link()}</Link>
+                  {' · '}
+                  <Link to="/privacy" target="_blank" rel="noreferrer" className="hover:underline">{m.auth_privacy_link()}</Link>
+                </p>
               </>
             ) : (
               <div className="space-y-4">
@@ -195,6 +272,7 @@ export default function LoginPage() {
                   <ShieldCheck className="h-4 w-4" />
                   {m.auth_code_verify()}
                 </Button>
+                {siteKey && <Turnstile ref={tsRef} siteKey={siteKey} onToken={setToken} />}
 
                 <p className="text-center text-xs text-muted">{m.auth_code_expire({ min: '10' })}</p>
 
@@ -235,6 +313,8 @@ export default function LoginPage() {
                   <Field label={m.auth_email()}>
                     <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
                   </Field>
+                  {consentBox}
+                  {siteKey && <Turnstile ref={tsDevRef} siteKey={siteKey} onToken={setToken} />}
                   <Button type="submit" variant="secondary" className="w-full" loading={busy}>{m.auth_signin()}</Button>
                 </form>
               ) : (

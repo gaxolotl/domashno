@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   banned_at TEXT,
   ban_reason TEXT,
   last_seen_at TEXT,
+  terms_accepted_at TEXT,
   created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
@@ -167,6 +168,8 @@ if (!userColumns.includes('email_verified')) {
 if (!userColumns.includes('banned_at')) db.exec('ALTER TABLE users ADD COLUMN banned_at TEXT');
 if (!userColumns.includes('ban_reason')) db.exec('ALTER TABLE users ADD COLUMN ban_reason TEXT');
 if (!userColumns.includes('last_seen_at')) db.exec('ALTER TABLE users ADD COLUMN last_seen_at TEXT');
+// When the user last accepted the Terms + Privacy Policy (GDPR consent record).
+if (!userColumns.includes('terms_accepted_at')) db.exec('ALTER TABLE users ADD COLUMN terms_accepted_at TEXT');
 if (!classColumns.includes('features')) db.exec('ALTER TABLE classes ADD COLUMN features TEXT');
 if (!classColumns.includes('school_id')) db.exec('ALTER TABLE classes ADD COLUMN school_id TEXT');
 const hwColumns = db.prepare('PRAGMA table_info(homework)').all().map((c) => c.name);
@@ -209,6 +212,12 @@ export const users = {
     return users.byId(id);
   },
   markVerified: (id) => db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(id),
+  /** Record Terms + Privacy acceptance (first acceptance wins — kept as the consent record). */
+  acceptTerms: (id) => {
+    db.prepare('UPDATE users SET terms_accepted_at = COALESCE(terms_accepted_at, ?) WHERE id = ?')
+      .run(now(), id);
+    return users.byId(id);
+  },
   findIdentity: (provider, providerUserId) =>
     db.prepare('SELECT * FROM identities WHERE provider = ? AND provider_user_id = ?')
       .get(provider, providerUserId),

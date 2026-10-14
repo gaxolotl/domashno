@@ -15,7 +15,7 @@ const jsonHeaders = () => ({
 
 const start = await fetch(`${BASE}/api/auth/email/start`, {
   method: 'POST', headers: jsonHeaders(),
-  body: JSON.stringify({ email: 'verify-test@example.com', name: 'Проверка', locale: 'bg' }),
+  body: JSON.stringify({ email: 'verify-test@example.com', name: 'Проверка', locale: 'bg', terms: true }),
 });
 const s = await start.json();
 console.log('start →', pretty(s));
@@ -26,14 +26,14 @@ if (!code) { console.error('FAIL: expected devCode with console provider'); proc
 // wrong code
 const bad = await fetch(`${BASE}/api/auth/email/verify`, {
   method: 'POST', headers: jsonHeaders(),
-  body: JSON.stringify({ email: 'verify-test@example.com', code: '000000' === code ? '111111' : '000000' }),
+  body: JSON.stringify({ email: 'verify-test@example.com', code: '000000' === code ? '111111' : '000000', terms: true }),
 });
 console.log('verify(wrong) →', bad.status, pretty(await bad.json()));
 
 // right code
 const ok = await fetch(`${BASE}/api/auth/email/verify`, {
   method: 'POST', headers: jsonHeaders(),
-  body: JSON.stringify({ email: 'verify-test@example.com', code }),
+  body: JSON.stringify({ email: 'verify-test@example.com', code, terms: true }),
 });
 const cookie = (ok.headers.getSetCookie?.() || []).map((c) => c.split(';')[0]).join('; ');
 const okBody = await ok.json();

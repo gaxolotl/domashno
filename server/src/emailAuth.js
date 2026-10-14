@@ -6,6 +6,7 @@ import { startLogin } from './auth.js';
 import { sendVerificationEmail } from './email.js';
 import { badRequest, wrap } from './util.js';
 import { rateLimit } from './rateLimit.js';
+import { requireTerms, requireTurnstile } from './turnstile.js';
 import { publicUser } from './oauth.js';
 
 export const emailAuthRoutes = express.Router();
@@ -46,7 +47,11 @@ function upsertVerifiedUser({ email, name }) {
 const CODE_RE = /^\d{6}$/;
 
 /** Send a 6-digit code (and a one-tap link) to the address. */
-emailAuthRoutes.post('/email/start', startByIp, wrap(async (req, res) => {
+emailAuthRoutes.post('/email/start',
+  startByIp,
+  requireTerms((req) => req.body?.terms === true),
+  requireTurnstile((req) => req.body?.turnstile),
+  wrap(async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const name = String(req.body?.name || '').trim().slice(0, 80);
   const locale = req.body?.locale === 'en' ? 'en' : 'bg';
@@ -90,7 +95,11 @@ emailAuthRoutes.post('/email/start', startByIp, wrap(async (req, res) => {
 }));
 
 /** Confirm the code and, only now, open a session. */
-emailAuthRoutes.post('/email/verify', verifyByIp, wrap(async (req, res) => {
+emailAuthRoutes.post('/email/verify',
+  verifyByIp,
+  requireTerms((req) => req.body?.terms === true),
+  requireTurnstile((req) => req.body?.turnstile),
+  wrap(async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const code = String(req.body?.code || '').replace(/\D/g, '');
   if (!EMAIL_RE.test(email) || !CODE_RE.test(code)) return badRequest(res, 'invalid_code');
@@ -106,6 +115,7 @@ emailAuthRoutes.post('/email/verify', verifyByIp, wrap(async (req, res) => {
   emailTokens.consume(row.id);
   const user = upsertVerifiedUser({ email, name: row.name });
   if (user.banned_at) return res.status(403).json({ error: 'banned' });
+  users.acceptTerms(user.id); // consent was confirmed on the /email/start step
   startLogin(req, res, user.id);
   res.json({ user: publicUser(user) });
 }));
@@ -122,6 +132,7 @@ emailAuthRoutes.get('/email/link', linkByIp, (req, res) => {
   emailTokens.consume(row.id);
   const user = upsertVerifiedUser({ email: row.email, name: row.name });
   if (user.banned_at) return res.redirect(`${APP_URL}/login?error=banned`);
+  users.acceptTerms(user.id); // consent was confirmed on the /email/start step
   startLogin(req, res, user.id);
   res.redirect(`${APP_URL}/`);
 });

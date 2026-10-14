@@ -103,6 +103,28 @@ GOOGLE_CLIENT_ID=...          # optional
 GOOGLE_CLIENT_SECRET=...
 ```
 
+### Turnstile (bot check) + legal contact
+
+The login page shows a Cloudflare Turnstile widget and requires accepting the
+Terms (`/terms`) and Privacy Policy (`/privacy`). Both pages are built into the
+app in Bulgarian and English.
+
+1. Go to Cloudflare dashboard → **Turnstile** → **Add widget**, using your
+   domain. Copy the **site key** and **secret key** into `.env`:
+
+```ini
+TURNSTILE_SITE_KEY=0x...
+TURNSTILE_SECRET_KEY=0x...
+LEGAL_CONTACT_EMAIL=you@YOUR_DOMAIN   # shown as the contact on both pages
+```
+
+Leave the Turnstile keys empty to disable the check (local testing only —
+the login endpoints accept requests without a token then).
+
+Have your school/operator review the texts in `web/src/features/legal/legalContent.ts` —
+they are written in plain language with a GDPR structure, but they are
+templates, not legal advice.
+
 Generate a strong secret:
 
 ```bash

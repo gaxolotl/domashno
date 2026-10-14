@@ -4,6 +4,7 @@ import { PageLoader } from './components/ui';
 import { api } from './lib/api';
 import { useClasses, useMe } from './lib/hooks';
 import LoginPage from './features/auth/LoginPage';
+import LegalPage from './features/legal/LegalPage';
 import OnboardingPage from './features/onboarding/OnboardingPage';
 import ClassShell from './features/class/ClassShell';
 import TodayPage from './features/today/TodayPage';
@@ -40,6 +41,8 @@ export default function App() {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/terms" element={<LegalPage doc="terms" />} />
+        <Route path="/privacy" element={<LegalPage doc="privacy" />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -53,6 +56,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Navigate to={home} replace />} />
+      <Route path="/terms" element={<LegalPage doc="terms" />} />
+      <Route path="/privacy" element={<LegalPage doc="privacy" />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/class/:classId" element={<ClassShell />}>

@@ -4,6 +4,18 @@ import fs from 'node:fs';
 const BASE = process.env.BASE || 'http://localhost:8787';
 let cookie = '';
 const csrf = () => (cookie.match(/domashno_csrf=([^;]+)/) || [])[1] || '';
+// Merge Set-Cookie into the jar (a naive replace would drop the session or CSRF cookie).
+const storeCookies = (setc) => {
+  const jar = new Map(
+    cookie.split('; ').filter(Boolean).map((c) => [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)]),
+  );
+  for (const c of setc || []) {
+    const pair = c.split(';')[0];
+    const i = pair.indexOf('=');
+    if (i > 0) jar.set(pair.slice(0, i), pair.slice(i + 1));
+  }
+  cookie = [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+};
 const req = async (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
   if (method !== 'GET' && !csrf()) await req('/api/health'); // warm the CSRF cookie first
@@ -15,8 +27,7 @@ const req = async (path, opts = {}) => {
       ...(cookie ? { Cookie: cookie } : {}),
     },
   });
-  const setc = res.headers.getSetCookie?.() || [];
-  if (setc.length) cookie = setc.map((c) => c.split(';')[0]).join('; ');
+  storeCookies(res.headers.getSetCookie?.());
   const text = await res.text();
   let body;
   try { body = text ? JSON.parse(text) : null; } catch { body = text; }
@@ -32,7 +43,7 @@ console.log(r.body);
 check(r.body.dev === true, 'dev login enabled');
 
 line('dev login');
-r = await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Тест Учител', email: 'test@example.com' }) });
+r = await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Тест Учител', email: 'test@example.com', terms: true }) });
 check(r.status === 200, 'logged in');
 const meId = r.body.user.id;
 
@@ -92,7 +103,7 @@ if (pdfPath && fs.existsSync(pdfPath)) {
 
 line('join with code');
 cookie = '';
-r = await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Съученик', email: 'peer@example.com' }) });
+r = await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Съученик', email: 'peer@example.com', terms: true }) });
 check(r.status === 200, 'second user logged in');
 r = await req('/api/classes/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: invite }) });
 check(r.status === 200 && r.body.class.id === classId, 'joined via invite code');
@@ -100,11 +111,11 @@ check(r.status === 200 && r.body.class.id === classId, 'joined via invite code')
 line('permission: restricted posting');
 // owner sets restricted policy
 cookie = '';
-await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Тест Учител', email: 'test@example.com' }) });
+await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Тест Учител', email: 'test@example.com', terms: true }) });
 await req(`/api/classes/${classId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ post_policy: 'restricted' }) });
 // member tries to post -> forbidden
 cookie = '';
-await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Съученик', email: 'peer@example.com' }) });
+await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Съученик', email: 'peer@example.com', terms: true }) });
 r = await req(`/api/classes/${classId}/homework`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject_id: null, title: 'x', body: '', due_date: '2026-10-14' }) });
 check(r.status === 403, 'member blocked when restricted');
 

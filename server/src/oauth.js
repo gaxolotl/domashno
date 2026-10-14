@@ -7,6 +7,7 @@ import {
   signValue, verifyValue, setSessionCookie, clearSessionCookie, startLogin, isAdmin,
 } from './auth.js';
 import { rateLimit } from './rateLimit.js';
+import { requireTerms, requireTurnstile } from './turnstile.js';
 import { badRequest, wrap } from './util.js';
 
 const router = express.Router();
@@ -80,7 +81,11 @@ router.get('/providers', rateLimit({ name: 'providers', windowMs: 60_000, max: 1
   });
 });
 
-router.get('/:provider/start', oauthStartLimit, (req, res) => {
+router.get('/:provider/start',
+  oauthStartLimit,
+  requireTerms((req) => req.query.terms === '1'),
+  requireTurnstile((req) => req.query.turnstile),
+  (req, res) => {
   const provider = req.params.provider;
   const client = providers()[provider];
   if (!client || !['google', 'github'].includes(provider)) {
@@ -88,7 +93,9 @@ router.get('/:provider/start', oauthStartLimit, (req, res) => {
   }
   const state = crypto.randomUUID();
   const codeVerifier = crypto.randomUUID() + crypto.randomUUID();
-  res.cookie(STATE_COOKIE, signValue({ state, codeVerifier, provider }), {
+  // The `terms` flag travels inside the signed cookie, so the callback can
+  // trust it — it cannot be forged or added afterwards.
+  res.cookie(STATE_COOKIE, signValue({ state, codeVerifier, provider, terms: true }), {
     httpOnly: true,
     sameSite: 'lax',
     // This cookie carries the PKCE verifier, so it must never leave the TLS
@@ -117,7 +124,7 @@ router.get('/:provider/callback', oauthStartLimit, wrap(async (req, res) => {
 
   const saved = verifyValue(req.cookies?.[STATE_COOKIE]);
   res.clearCookie(STATE_COOKIE, { path: '/' });
-  if (!saved || saved.provider !== provider || saved.state !== state) {
+  if (!saved || saved.provider !== provider || saved.state !== state || saved.terms !== true) {
     return badRequest(res, 'Invalid or expired OAuth state');
   }
 
@@ -137,12 +144,17 @@ router.get('/:provider/callback', oauthStartLimit, wrap(async (req, res) => {
 
   const user = upsertUser({ provider, ...profile });
   if (user.banned_at) return res.redirect(`${envAppUrl()}/login?error=banned`);
+  users.acceptTerms(user.id); // consent was confirmed on the /start step (see signed state)
   startLogin(req, res, user.id);
   res.redirect(`${envAppUrl()}/`);
 }));
 
 /** Dev login: create or reuse a user by name + email. Only for local testing. */
-router.post('/dev', devLoginLimit, wrap(async (req, res) => {
+router.post('/dev',
+  devLoginLimit,
+  requireTerms((req) => req.body?.terms === true),
+  requireTurnstile((req) => req.body?.turnstile),
+  wrap(async (req, res) => {
   if (!ENABLE_DEV_LOGIN) return res.status(404).json({ error: 'Not available' });
   const name = String(req.body?.name || '').trim();
   const email = String(req.body?.email || '').trim().toLowerCase() || null;
@@ -155,6 +167,7 @@ router.post('/dev', devLoginLimit, wrap(async (req, res) => {
     user = users.create({ name, email, verified: true });
   }
   if (user.banned_at) return res.status(403).json({ error: 'banned' });
+  users.acceptTerms(user.id);
   startLogin(req, res, user.id);
   res.json({ user: publicUser(user) });
 }));

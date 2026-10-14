@@ -5,6 +5,18 @@ import sharp from 'sharp';
 const BASE = process.env.BASE || 'http://localhost:8899';
 let cookie = '';
 const csrf = () => (cookie.match(/domashno_csrf=([^;]+)/) || [])[1] || '';
+// Merge Set-Cookie into the jar (a naive replace would drop the session or CSRF cookie).
+const storeCookies = (setc) => {
+  const jar = new Map(
+    cookie.split('; ').filter(Boolean).map((c) => [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)]),
+  );
+  for (const c of setc || []) {
+    const pair = c.split(';')[0];
+    const i = pair.indexOf('=');
+    if (i > 0) jar.set(pair.slice(0, i), pair.slice(i + 1));
+  }
+  cookie = [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+};
 const req = async (path, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
   if (method !== 'GET' && !csrf()) await req('/api/health'); // warm the CSRF cookie first
@@ -16,8 +28,7 @@ const req = async (path, opts = {}) => {
       ...(cookie ? { Cookie: cookie } : {}),
     },
   });
-  const setc = res.headers.getSetCookie?.() || [];
-  if (setc.length) cookie = setc.map((c) => c.split(';')[0]).join('; ');
+  storeCookies(res.headers.getSetCookie?.());
   return res;
 };
 const j = async (r) => { try { return await r.json(); } catch { return null; } };
@@ -26,7 +37,7 @@ const check = (cond, msg) => { console.log(`${cond ? 'ok  ' : 'FAIL'} ${msg}`); 
 const line = (t) => console.log(`\n=== ${t} ===`);
 
 line('login + class + homework');
-let r = await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Img Test', email: 'img@test.local' }) });
+let r = await req('/api/auth/dev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Img Test', email: 'img@test.local', terms: true }) });
 check(r.status === 200, 'dev login');
 const cls = (await j(await req('/api/classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Тест' }) }))).class;
 const hw = (await j(await req(`/api/classes/${cls.id}/homework`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject_id: null, title: 'снимка', body: '', due_date: '2026-10-20' }) }))).homework;
@@ -60,7 +71,7 @@ check((await sharp(Buffer.from(await tUp.arrayBuffer())).metadata()).width === 1
 
 line('rate limit: email/start per IP (max 8) + hourly budget (3)');
 let codes = [];
-for (let i = 0; i < 10; i++) codes.push((await req('/api/auth/email/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: `t${i}@test.local`, name: 'x', locale: 'en' }) })).status);
+for (let i = 0; i < 10; i++) codes.push((await req('/api/auth/email/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: `t${i}@test.local`, name: 'x', locale: 'en', terms: true }) })).status);
 check(codes.includes(429), `got 429 among ${codes.join(',')}`);
 check(codes.filter((c) => c === 200).length <= 3, `hourly budget capped sends at ${codes.filter((c) => c === 200).length} (<=3)`);
 

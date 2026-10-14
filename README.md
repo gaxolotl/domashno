@@ -8,8 +8,9 @@ Timetable + homework board for a school class. Import the weekly timetable from 
 - **Homework** with due dates, notes, and file uploads (photos, PDF, presentations, documents), editable and deletable.
 - **Classes** with invite codes and per-subject permissions for who may post homework.
 - **Admin panel** (`/admin`, gated by `ADMIN_EMAIL` in `.env`) — stats, user management, bans, login fingerprints, and per-class feature flags (upload limit, freeze, official/featured).
-- **Sign in** with Google / GitHub, or an email code.
+- **Sign in** with Google / GitHub, or an email code — protected by Cloudflare Turnstile and Terms + Privacy acceptance.
 - Light & dark theme, Bulgarian & English.
+- Built-in **Terms** (`/terms`) and **Privacy Policy** (`/privacy`, GDPR-structured) in both languages.
 
 ## Setup
 
@@ -39,6 +40,8 @@ To enable real sign-in, fill in `.env` (see `.env.example`):
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | "Continue with Google" (callback: `/api/auth/google/callback`) |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | "Continue with GitHub" (callback: `/api/auth/github/callback`) |
 | `RESEND_API_KEY` + `EMAIL_FROM` | Email sign-in codes/links via [Resend](https://resend.com) (or use `SMTP_*`) |
+| `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` | Bot check on the login page ([Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile), free). Empty = off (local dev) |
+| `LEGAL_CONTACT_EMAIL` | Contact shown on the Terms + Privacy pages (the data-controller contact) |
 
 Without an email provider, verification codes are printed to the server log.
 

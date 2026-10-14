@@ -220,18 +220,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 const json = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) });
 
 export const api = {
-  config: () => request<{ maxUploadMb: number; subjectColors: string[] }>('/config'),
+  config: () => request<{ maxUploadMb: number; subjectColors: string[]; turnstileSiteKey: string | null; legalContact: string | null }>('/config'),
   // auth
   providers: () => request<Providers>('/auth/providers'),
   me: () => request<{ user: Me | null }>('/me'),
   rename: (name: string) => request<{ user: Me }>('/me', { method: 'PATCH', body: JSON.stringify({ name }) }),
-  devLogin: (name: string, email: string) => request<{ user: Me }>('/auth/dev', json({ name, email })),
-  emailStart: (email: string, name: string, locale: string) =>
+  devLogin: (name: string, email: string, extra: { terms: boolean; turnstile?: string }) =>
+    request<{ user: Me }>('/auth/dev', json({ name, email, ...extra })),
+  emailStart: (email: string, name: string, locale: string, extra: { terms: boolean; turnstile?: string }) =>
     request<{ ok: true; email: string; provider: string; expiresInMin: number; devCode?: string; devLink?: string }>(
       '/auth/email/start',
-      json({ email, name, locale }),
+      json({ email, name, locale, ...extra }),
     ),
-  emailVerify: (email: string, code: string) => request<{ user: Me }>('/auth/email/verify', json({ email, code })),
+  emailVerify: (email: string, code: string, extra: { terms: boolean; turnstile?: string }) =>
+    request<{ user: Me }>('/auth/email/verify', json({ email, code, ...extra })),
   logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
 
   // classes

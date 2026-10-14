@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import multer from 'multer';
-import { UPLOAD_DIR, MAX_UPLOAD_MB } from './env.js';
+import { UPLOAD_DIR, MAX_UPLOAD_MB, TURNSTILE, LEGAL_CONTACT_EMAIL } from './env.js';
 import {
   users, classes, members, subjects, slots, homework, attachments,
   subjectPerms, canPostFor, parseFeatures, loginEvents, schools, SUBJECT_COLORS,
@@ -175,7 +175,14 @@ const pdfUpload = multer({
 
 apiRouter.get('/config', (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({ maxUploadMb: MAX_UPLOAD_MB, subjectColors: SUBJECT_COLORS });
+  res.json({
+    maxUploadMb: MAX_UPLOAD_MB,
+    subjectColors: SUBJECT_COLORS,
+    // Public Turnstile site key (null = bot check disabled). The secret never leaves the server.
+    turnstileSiteKey: TURNSTILE.siteKey || null,
+    // Contact shown on the Terms / Privacy pages (null = generic "contact the administrator" text).
+    legalContact: LEGAL_CONTACT_EMAIL || null,
+  });
 });
 
 /* ----------------------------------- me ------------------------------------ */

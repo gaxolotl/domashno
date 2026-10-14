@@ -59,6 +59,16 @@ export const EMAIL = {
 export const EMAIL_PROVIDER = EMAIL.resendApiKey ? 'resend' : EMAIL.smtp.host ? 'smtp' : 'console';
 export const VERIFICATION_TTL_MIN = 10;
 
+/** Cloudflare Turnstile (bot protection on the login page). Empty = disabled (local dev). */
+export const TURNSTILE = {
+  siteKey: process.env.TURNSTILE_SITE_KEY || '',
+  secretKey: process.env.TURNSTILE_SECRET_KEY || '',
+};
+export const turnstileEnabled = () => Boolean(TURNSTILE.siteKey && TURNSTILE.secretKey);
+
+/** Public contact shown on the Terms / Privacy pages (Data controller contact). */
+export const LEGAL_CONTACT_EMAIL = (process.env.LEGAL_CONTACT_EMAIL || '').trim();
+
 /** Hard cap on verification emails sent per hour (protects your provider quota). */
 export const EMAIL_MAX_PER_HOUR = num(process.env.EMAIL_MAX_PER_HOUR, 300);
 
