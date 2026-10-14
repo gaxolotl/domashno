@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Paperclip, Trash2, UploadCloud } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea, cn, useToast } from '../../components/ui';
 import { api, ApiError, type Attachment, type Homework, type Slot, type Subject } from '../../lib/api';
 import { todayISO, humanSize } from '../../lib/dates';
-import { nextLessonDate } from '../../lib/timetable';
+import { nextLessonDate, siblingVariants, type SubjectKind } from '../../lib/timetable';
 import { DueDatePicker, type DueValue } from './DueDatePicker';
 import { m } from '../../paraglide/messages';
 
@@ -142,6 +142,13 @@ export function HomeworkEditor({
     }
   };
 
+  // Same base subject taught as regular / ИУЧ / ФУЧ lessons (e.g. Мат,
+  // Мат (ИУЧ …), Мат (ФУЧ …)). The pills switch between those variants, so the
+  // homework lands on the right one — each has its own timetable days.
+  const siblings = useMemo(() => siblingVariants(subjects, subjectId || null), [subjects, subjectId]);
+  const kindLabel = (kind: SubjectKind) =>
+    kind === 'normal' ? m.hw_variant_normal() : kind === 'iuch' ? m.hw_variant_iuch() : m.hw_variant_fuch();
+
   const picker = useFilePicker(async (files) => {
     if (editing) {
       setBusy(true);
@@ -214,6 +221,32 @@ export function HomeworkEditor({
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </Select>
+            {siblings.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 pt-1.5" role="group" aria-label={m.hw_variant()}>
+                {siblings.map((v) => {
+                  const active = v.subject.id === subjectId;
+                  const ambiguous = siblings.filter((x) => x.kind === v.kind).length > 1;
+                  const label = ambiguous && v.detail ? `${kindLabel(v.kind)} · ${v.detail}` : kindLabel(v.kind);
+                  return (
+                    <button
+                      key={v.subject.id}
+                      type="button"
+                      title={v.subject.name}
+                      onClick={() => onSubjectChange(v.subject.id)}
+                      aria-pressed={active}
+                      className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'border-primary bg-primary text-primary-ink'
+                          : 'border-line bg-surface text-muted hover:bg-surface2 hover:text-ink',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </Field>
           <Field label={m.hw_due()}>
             <DueDatePicker
