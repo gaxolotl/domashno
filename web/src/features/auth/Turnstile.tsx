@@ -33,7 +33,7 @@ function loadScript(): Promise<void> {
   if (!scriptPromise) {
     scriptPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://challenges.cloudflare.com/turnstile/api.js?render=explicit';
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
       s.async = true;
       s.defer = true;
       s.onload = () => resolve();
