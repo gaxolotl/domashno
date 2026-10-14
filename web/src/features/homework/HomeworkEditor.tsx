@@ -3,7 +3,7 @@ import { Paperclip, Trash2, UploadCloud } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea, cn, useToast } from '../../components/ui';
 import { api, ApiError, type Attachment, type Homework, type Slot, type Subject } from '../../lib/api';
 import { todayISO, humanSize } from '../../lib/dates';
-import { nextLessonDate, siblingVariants, type SubjectKind } from '../../lib/timetable';
+import { nextLessonAfter, nextLessonDate, siblingVariants, type SubjectKind } from '../../lib/timetable';
 import { DueDatePicker, type DueValue } from './DueDatePicker';
 import { m } from '../../paraglide/messages';
 
@@ -149,6 +149,20 @@ export function HomeworkEditor({
   const kindLabel = (kind: SubjectKind) =>
     kind === 'normal' ? m.hw_variant_normal() : kind === 'iuch' ? m.hw_variant_iuch() : m.hw_variant_fuch();
 
+  // Picking a variant always moves the due date to that variant's next lesson
+  // (strictly after today — the homework is for the upcoming class, not one
+  // that already happened). Unlike the subject dropdown this applies even when
+  // a date was already suggested, so the date always follows the pills.
+  const onVariantChange = (sid: string) => {
+    if (sid === subjectId) return;
+    setSubjectId(sid);
+    const next = nextLessonAfter(schedule, sid || null, todayISO());
+    if (next) {
+      setDue({ date: next, period: null });
+      setDateTouched(false);
+    }
+  };
+
   const picker = useFilePicker(async (files) => {
     if (editing) {
       setBusy(true);
@@ -232,7 +246,7 @@ export function HomeworkEditor({
                       key={v.subject.id}
                       type="button"
                       title={v.subject.name}
-                      onClick={() => onSubjectChange(v.subject.id)}
+                      onClick={() => onVariantChange(v.subject.id)}
                       aria-pressed={active}
                       className={cn(
                         'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
