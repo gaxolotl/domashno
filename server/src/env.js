@@ -28,6 +28,8 @@ export const APP_URL = (process.env.APP_URL || 'http://localhost:5173').replace(
 export const SESSION_SECRET = process.env.SESSION_SECRET || 'domashno-dev-secret-change-me';
 export const ENABLE_DEV_LOGIN = String(process.env.ENABLE_DEV_LOGIN ?? '1') === '1';
 export const MAX_UPLOAD_MB = num(process.env.MAX_UPLOAD_MB, 25);
+/** Per-file ceiling for the admin "Files" area (private CDN). */
+export const MAX_CDN_MB = num(process.env.MAX_CDN_MB, 200);
 export const NODE_ENV = process.env.NODE_ENV || 'development';
 export const IS_PROD = NODE_ENV === 'production';
 

@@ -198,6 +198,15 @@ export interface Bootstrap {
   providers: Providers;
 }
 
+/** One entry in the admin file area (private CDN). */
+export interface CdnEntry {
+  name: string;
+  dir: boolean;
+  size: number | null;
+  mime: string | null;
+  modified: string;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -340,4 +349,24 @@ export const api = {
     request<{ school: School }>(`/admin/schools/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   adminDeleteSchool: (id: string) => request<{ ok: true }>(`/admin/schools/${id}`, { method: 'DELETE' }),
   adminLogins: (limit = 60) => request<{ logins: LoginEvent[] }>(`/admin/logins?limit=${limit}`),
+
+  // ---- admin: private file area (CDN) ----
+  adminFiles: (path = '') =>
+    request<{ path: string; parent: string; entries: CdnEntry[] }>(`/admin/files?path=${encodeURIComponent(path)}`),
+  adminUpload: (path: string, files: File[]) => {
+    const fd = new FormData();
+    for (const f of files) fd.append('files', f);
+    return request<{ uploaded: { name: string; size: number }[] }>(
+      `/admin/files?path=${encodeURIComponent(path)}`,
+      { method: 'POST', body: fd },
+    );
+  },
+  adminMkdir: (path: string, name: string) =>
+    request<{ name: string }>('/admin/folders', json({ path, name })),
+  adminRename: (path: string, patch: { name?: string; to?: string }) =>
+    request<{ path: string }>('/admin/files', { method: 'PATCH', body: JSON.stringify({ path, ...patch }) }),
+  adminDeleteFile: (path: string) =>
+    request<{ ok: true }>(`/admin/files?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
+  cdnUrl: (path: string, download = false) =>
+    `/api/admin/files/raw?path=${encodeURIComponent(path)}${download ? '&download=1' : ''}`,
 };

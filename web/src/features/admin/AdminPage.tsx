@@ -13,8 +13,9 @@ import { useMe } from '../../lib/hooks';
 import { humanSize } from '../../lib/dates';
 import { getLocale } from '../../paraglide/runtime';
 import { m } from '../../paraglide/messages';
+import FilesTab from './FilesTab';
 
-type Tab = 'stats' | 'users' | 'classes' | 'logins';
+type Tab = 'stats' | 'users' | 'classes' | 'files' | 'logins';
 
 const fmtDate = (iso?: string | null) => {
   if (!iso) return m.admin_never();
@@ -69,12 +70,14 @@ export default function AdminPage() {
             { value: 'stats', label: m.admin_tab_stats() },
             { value: 'users', label: m.admin_tab_users() },
             { value: 'classes', label: m.admin_tab_classes() },
+            { value: 'files', label: m.admin_tab_files() },
             { value: 'logins', label: m.admin_tab_logins() },
           ]}
         />
         {tab === 'stats' && <StatsTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'classes' && <ClassesTab />}
+        {tab === 'files' && <FilesTab />}
         {tab === 'logins' && <LoginsTab />}
       </main>
     </div>

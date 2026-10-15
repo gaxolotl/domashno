@@ -10,6 +10,7 @@ import { authRoutes } from './oauth.js';
 import { emailAuthRoutes } from './emailAuth.js';
 import { apiRouter } from './api.js';
 import { adminRoutes } from './admin.js';
+import { cdnRoutes } from './cdn.js';
 import { rateLimit } from './rateLimit.js';
 import { issueCsrf, requireCsrf } from './csrf.js';
 
@@ -31,6 +32,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', emailAuthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin', cdnRoutes);
 app.use('/api', apiRouter);
 
 // Machine-readable capability manifest (Agentic Browsing / ARD): this app
