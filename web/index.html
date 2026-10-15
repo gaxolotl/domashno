@@ -25,10 +25,11 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="ai-catalog" href="/.well-known/ai-catalog.json" />
     <link rel="preconnect" href="https://challenges.cloudflare.com" />
-    <!-- Self-hosted Golos Text (see src/fonts.css): preload the Cyrillic
-         face used above the fold so first paint rarely needs a font swap.
+    <!-- Self-hosted Golos Text (see src/fonts.css): preload the faces used
+         above the fold so first paint rarely needs a font swap.
          (One file serves all weights, same as Google's css2 response.) -->
     <link rel="preload" href="/fonts/golos-text-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/golos-text-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Домашно</title>
     <script>
       // Set the theme before first paint to avoid a flash.

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Github, Mail, ShieldCheck } from 'lucide-react';
 import { Button, Card, Field, Input } from '../../components/ui';
 import { LanguageControl, ThemeControl } from '../../components/Controls';
 import { Logo } from '../../components/Brand';
 import { api, ApiError } from '../../lib/api';
-import { useConfig } from '../../lib/hooks';
+import { useBootstrap } from '../../lib/hooks';
 import { getLocale } from '../../paraglide/runtime';
 import { m } from '../../paraglide/messages';
 import Turnstile, { type TurnstileHandle } from './Turnstile';
@@ -39,7 +39,10 @@ function errorText(code: string): string {
 
 export default function LoginPage() {
   const [params] = useSearchParams();
-  const [providerInfo, setProviders] = useState<{ google: boolean; github: boolean; dev: boolean } | null>(null);
+  // Auth state + config + providers arrive in one bootstrap request (shared
+  // with App, so this adds zero extra round trips).
+  const boot = useBootstrap();
+  const providerInfo = boot.data?.providers ?? null;
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [showDev, setShowDev] = useState(false);
 
@@ -56,12 +59,8 @@ export default function LoginPage() {
   const [token, setToken] = useState<string | null>(null);
   const tsRef = useRef<TurnstileHandle>(null);
   const tsDevRef = useRef<TurnstileHandle>(null);
-  const { data: config } = useConfig();
+  const config = boot.data?.config;
   const siteKey = config?.turnstileSiteKey ?? null;
-
-  useEffect(() => {
-    api.providers().then(setProviders).catch(() => setProviders({ google: false, github: false, dev: false }));
-  }, []);
 
   const hasOAuth = Boolean(providerInfo && (providerInfo.google || providerInfo.github));
 
@@ -90,7 +89,13 @@ export default function LoginPage() {
   const [tsFailed, setTsFailed] = useState(false);
   const [tsAttempt, setTsAttempt] = useState(0);
   const renderTs = (ref: RefObject<TurnstileHandle>) => {
-    if (!siteKey) return null;
+    if (!siteKey) {
+      // Config still loading: reserve the widget's space so it cannot shove
+      // the form down when it arrives (layout shift). When Turnstile is off
+      // there is no widget and no gap.
+      if (boot.isLoading) return <div className="min-h-[65px]" aria-hidden />;
+      return null;
+    }
     if (tsFailed) {
       return (
         <div className="rounded-xl border border-line bg-surface2 px-4 py-3 text-center">
@@ -231,26 +236,39 @@ export default function LoginPage() {
           <Card className="p-6">
             {step === 'email' ? (
               <>
-                {hasOAuth && (
-                  <div className="space-y-2.5">
-                    {providerInfo?.google && (
-                      <Button variant="secondary" size="lg" className="w-full justify-center" onClick={() => oauth('google')}>
-                        <GoogleIcon />
-                        {m.auth_google()}
-                      </Button>
-                    )}
-                    {providerInfo?.github && (
-                      <Button variant="secondary" size="lg" className="w-full justify-center" onClick={() => oauth('github')}>
-                        <Github className="h-4 w-4" />
-                        {m.auth_github()}
-                      </Button>
-                    )}
-                    <div className="my-5 flex items-center gap-3 text-xs text-muted">
+                {boot.isLoading ? (
+                  // Same geometry as the OAuth block below: placeholders swap
+                  // for real buttons with zero layout shift.
+                  <div className="space-y-2.5" aria-hidden>
+                    <div className="h-12 w-full animate-pulse rounded-xl bg-surface2" />
+                    <div className="h-12 w-full animate-pulse rounded-xl bg-surface2" />
+                    <div className="my-5 flex items-center gap-3">
                       <span className="h-px flex-1 bg-line" />
-                      {m.auth_or()}
                       <span className="h-px flex-1 bg-line" />
                     </div>
                   </div>
+                ) : (
+                  hasOAuth && (
+                    <div className="space-y-2.5">
+                      {providerInfo?.google && (
+                        <Button variant="secondary" size="lg" className="w-full justify-center" onClick={() => oauth('google')}>
+                          <GoogleIcon />
+                          {m.auth_google()}
+                        </Button>
+                      )}
+                      {providerInfo?.github && (
+                        <Button variant="secondary" size="lg" className="w-full justify-center" onClick={() => oauth('github')}>
+                          <Github className="h-4 w-4" />
+                          {m.auth_github()}
+                        </Button>
+                      )}
+                      <div className="my-5 flex items-center gap-3 text-xs text-muted">
+                        <span className="h-px flex-1 bg-line" />
+                        {m.auth_or()}
+                        <span className="h-px flex-1 bg-line" />
+                      </div>
+                    </div>
+                  )
                 )}
 
                 <form

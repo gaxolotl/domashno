@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import multer from 'multer';
-import { UPLOAD_DIR, MAX_UPLOAD_MB, TURNSTILE, LEGAL_CONTACT_EMAIL } from './env.js';
+import { UPLOAD_DIR, MAX_UPLOAD_MB, TURNSTILE, LEGAL_CONTACT_EMAIL, oauthEnabled, ENABLE_DEV_LOGIN } from './env.js';
 import {
   users, classes, members, subjects, slots, homework, attachments,
   subjectPerms, canPostFor, parseFeatures, loginEvents, schools, SUBJECT_COLORS,
@@ -173,16 +173,33 @@ const pdfUpload = multer({
 
 /* ---------------------------------- config --------------------------------- */
 
+const configView = () => ({
+  maxUploadMb: MAX_UPLOAD_MB,
+  subjectColors: SUBJECT_COLORS,
+  // Public Turnstile site key (null = bot check disabled). The secret never leaves the server.
+  turnstileSiteKey: TURNSTILE.siteKey || null,
+  // Contact shown on the Terms / Privacy pages (null = generic "contact the administrator" text).
+  legalContact: LEGAL_CONTACT_EMAIL || null,
+});
+
+const providersView = () => ({
+  google: oauthEnabled('google'),
+  github: oauthEnabled('github'),
+  dev: ENABLE_DEV_LOGIN,
+});
+
 apiRouter.get('/config', (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({
-    maxUploadMb: MAX_UPLOAD_MB,
-    subjectColors: SUBJECT_COLORS,
-    // Public Turnstile site key (null = bot check disabled). The secret never leaves the server.
-    turnstileSiteKey: TURNSTILE.siteKey || null,
-    // Contact shown on the Terms / Privacy pages (null = generic "contact the administrator" text).
-    legalContact: LEGAL_CONTACT_EMAIL || null,
-  });
+  res.json(configView());
+});
+
+/**
+ * Single-round-trip bootstrap for first paint: auth state + public config +
+ * login providers. The login page needs all three before it is complete.
+ */
+apiRouter.get('/bootstrap', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ user: publicUser(req.user), config: configView(), providers: providersView() });
 });
 
 /* ----------------------------------- me ------------------------------------ */

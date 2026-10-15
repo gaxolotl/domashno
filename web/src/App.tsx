@@ -1,8 +1,9 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { PageLoader } from './components/ui';
 import { api } from './lib/api';
-import { useClasses, useMe } from './lib/hooks';
+import { qk, useBootstrap, useClasses } from './lib/hooks';
 // Login is the first paint: keep it in the entry chunk. Everything else is
 // split into route chunks so the sign-in page downloads far less JavaScript.
 import LoginPage from './features/auth/LoginPage';
@@ -17,9 +18,18 @@ const SettingsPage = lazy(() => import('./features/settings/SettingsPage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 
 export default function App() {
-  const me = useMe();
-  const classes = useClasses(Boolean(me.data?.user));
-  const userId = me.data?.user?.id;
+  const boot = useBootstrap();
+  const qc = useQueryClient();
+  // Seed the individual caches so useMe/useConfig/useProviders elsewhere
+  // never refetch what bootstrap already returned.
+  useEffect(() => {
+    if (!boot.data) return;
+    qc.setQueryData(qk.me, { user: boot.data.user });
+    qc.setQueryData(qk.config, boot.data.config);
+    qc.setQueryData(qk.providers, boot.data.providers);
+  }, [boot.data, qc]);
+  const classes = useClasses(Boolean(boot.data?.user));
+  const userId = boot.data?.user?.id;
 
   // Send client-side fingerprint bits once per login (for the admin panel).
   useEffect(() => {
@@ -36,9 +46,9 @@ export default function App() {
     } catch { /* ignore */ }
   }, [userId]);
 
-  if (me.isLoading) return <PageLoader />;
+  if (boot.isLoading) return <PageLoader />;
 
-  const user = me.data?.user ?? null;
+  const user = boot.data?.user ?? null;
   if (!user) {
     return (
       <Suspense fallback={<PageLoader />}>

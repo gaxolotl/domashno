@@ -185,6 +185,19 @@ export interface Providers {
   dev: boolean;
 }
 
+export interface AppConfig {
+  maxUploadMb: number;
+  subjectColors: string[];
+  turnstileSiteKey: string | null;
+  legalContact: string | null;
+}
+
+export interface Bootstrap {
+  user: Me | null;
+  config: AppConfig;
+  providers: Providers;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -220,7 +233,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 const json = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) });
 
 export const api = {
-  config: () => request<{ maxUploadMb: number; subjectColors: string[]; turnstileSiteKey: string | null; legalContact: string | null }>('/config'),
+  config: () => request<AppConfig>('/config'),
+  bootstrap: () => request<Bootstrap>('/bootstrap'),
   // auth
   providers: () => request<Providers>('/auth/providers'),
   me: () => request<{ user: Me | null }>('/me'),

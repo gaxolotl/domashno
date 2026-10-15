@@ -11,6 +11,7 @@ export const qk = {
   providers: ['providers'] as const,
   classes: ['classes'] as const,
   config: ['config'] as const,
+  bootstrap: ['bootstrap'] as const,
   class: (id: string) => ['class', id] as const,
   homework: (id: string, filter: string) => ['homework', id, filter] as const,
 };
@@ -31,6 +32,15 @@ export function useProviders() {
 
 export function useConfig() {
   return useQuery({ queryKey: qk.config, queryFn: api.config, staleTime: Infinity });
+}
+
+/**
+ * Auth state + public config + login providers in one round trip (first
+ * paint needs all three). Safe to cache forever: every sign-in/out is a full
+ * page reload, so the data is always fresh per page load.
+ */
+export function useBootstrap() {
+  return useQuery({ queryKey: qk.bootstrap, queryFn: api.bootstrap, staleTime: Infinity });
 }
 
 export function useClasses(enabled = true) {
