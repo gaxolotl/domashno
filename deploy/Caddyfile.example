@@ -12,6 +12,14 @@ domashno.example.com {
 		max_size 30MB
 	}
 
+	# Hashed /assets/* files are immutable — cache them for a year.
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Clickjacking + protocol-downgrade protection (TLS is automatic, so HSTS is safe).
+	header Strict-Transport-Security "max-age=31536000"
+	header X-Frame-Options "SAMEORIGIN"
+
 	reverse_proxy 127.0.0.1:8787 {
 		header_up X-Real-IP {remote_host}
 	}
