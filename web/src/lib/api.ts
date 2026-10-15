@@ -205,6 +205,12 @@ export interface CdnEntry {
   size: number | null;
   mime: string | null;
   modified: string;
+  /** Explicitly shared by the admin. */
+  public?: boolean;
+  /** Reachable because a parent folder is shared (not shared itself). */
+  viaParent?: boolean;
+  /** Public URL, when the entry is reachable publicly. */
+  url?: string | null;
 }
 
 export class ApiError extends Error {
@@ -352,7 +358,7 @@ export const api = {
 
   // ---- admin: private file area (CDN) ----
   adminFiles: (path = '') =>
-    request<{ path: string; parent: string; entries: CdnEntry[] }>(`/admin/files?path=${encodeURIComponent(path)}`),
+    request<{ path: string; parent: string; shared: boolean; entries: CdnEntry[] }>(`/admin/files?path=${encodeURIComponent(path)}`),
   adminUpload: (path: string, files: File[]) => {
     const fd = new FormData();
     for (const f of files) fd.append('files', f);
@@ -367,6 +373,10 @@ export const api = {
     request<{ path: string }>('/admin/files', { method: 'PATCH', body: JSON.stringify({ path, ...patch }) }),
   adminDeleteFile: (path: string) =>
     request<{ ok: true }>(`/admin/files?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
+  adminShare: (path: string, isPublic: boolean) =>
+    request<{ path: string; public: boolean; url: string | null }>('/admin/files/public', json({ path, public: isPublic })),
   cdnUrl: (path: string, download = false) =>
     `/api/admin/files/raw?path=${encodeURIComponent(path)}${download ? '&download=1' : ''}`,
+  /** Public (shareable) URL — only resolves while the file is shared. */
+  publicUrl: (rel: string) => `/api/cdn/f/${rel.split('/').map(encodeURIComponent).join('/')}`,
 };

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowUp, Copy, Download, FileArchive, FileAudio, FileCode, FileImage, FileText, FileVideo,
-  File as FileIcon, Folder, FolderPlus, Home, Loader2, Pencil, RefreshCw, Trash2, UploadCloud,
+  File as FileIcon, Folder, FolderPlus, Globe, Home, Loader2, Lock, Pencil, RefreshCw, Trash2, UploadCloud,
 } from 'lucide-react';
 import { Button, Card, Field, Input, Modal, Skeleton, cn, useToast } from '../../components/ui';
 import { api, type CdnEntry } from '../../lib/api';
@@ -73,6 +73,28 @@ export default function FilesTab() {
     onSuccess: () => { refresh(); setSelected([]); toast.push(m.files_deleted(), 'success'); },
     onError: (e: Error) => toast.push(e.message, 'error'),
   });
+
+  // Share/unshare a path (a folder shares everything inside it).
+  const share = useMutation({
+    mutationFn: ({ rel, isPublic }: { rel: string; isPublic: boolean }) => api.adminShare(rel, isPublic),
+    onSuccess: () => refresh(),
+    onError: (e: Error) => toast.push(e.message, 'error'),
+  });
+  const shareMany = useMutation({
+    mutationFn: ({ rels, isPublic }: { rels: string[]; isPublic: boolean }) =>
+      Promise.all(rels.map((rel) => api.adminShare(rel, isPublic))),
+    onSuccess: () => { setSelected([]); refresh(); },
+    onError: (e: Error) => toast.push(e.message, 'error'),
+  });
+
+  /** Copy the link that matches the item's state: public URL if shared, else the admin URL. */
+  const copyLink = (e: CdnEntry) => {
+    const rel = join(path, e.name);
+    const shared = Boolean(e.public || e.viaParent);
+    const url = `${location.origin}${shared ? api.publicUrl(rel) : api.cdnUrl(rel)}`;
+    navigator.clipboard?.writeText(url);
+    toast.push(shared ? m.files_copied_public() : m.files_copied_private(), 'success');
+  };
 
   const entries = data?.entries ?? [];
   const parent = data?.parent ?? '';
@@ -159,7 +181,25 @@ export default function FilesTab() {
       {selected.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface2 px-3 py-2 text-sm">
           <span className="font-medium text-ink">{m.files_selected({ n: String(selected.length) })}</span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={shareMany.isPending}
+              onClick={() => shareMany.mutate({ rels: incoming, isPublic: true })}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              {m.files_make_public()}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={shareMany.isPending}
+              onClick={() => shareMany.mutate({ rels: incoming, isPublic: false })}
+            >
+              <Lock className="h-3.5 w-3.5" />
+              {m.files_make_private()}
+            </Button>
             <Button
               size="sm"
               variant="danger"
@@ -202,7 +242,7 @@ export default function FilesTab() {
             <span className="min-w-0 flex-1">{m.files_col_name()}</span>
             <span className="hidden w-24 text-right sm:block">{m.files_col_size()}</span>
             <span className="hidden w-36 text-right md:block">{m.files_col_modified()}</span>
-            <span className="w-[88px] shrink-0" />
+            <span className="w-[100px] shrink-0 sm:w-[168px]" />
           </div>
 
           {isLoading ? (
@@ -247,20 +287,20 @@ export default function FilesTab() {
                     </span>
                     <span className="hidden w-36 text-right text-xs text-muted tnum md:block">{fmtDate(e.modified)}</span>
 
-                    <div className="flex w-[88px] shrink-0 items-center justify-end gap-0.5">
+                    <div className="flex w-[100px] shrink-0 items-center justify-end gap-0.5 sm:w-[168px]">
                       {!e.dir && (
                         <>
                           <button
-                            onClick={() => { navigator.clipboard?.writeText(`${location.origin}${api.cdnUrl(rel)}`); toast.push(m.files_copied(), 'success'); }}
-                            className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface2 hover:text-ink"
-                            aria-label={m.files_copy_link()}
-                            title={m.files_copy_link()}
+                            onClick={() => copyLink(e)}
+                            className="hidden h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface2 hover:text-ink sm:grid"
+                            aria-label={e.public || e.viaParent ? m.files_public_title() : m.files_copy_link()}
+                            title={e.public || e.viaParent ? m.files_public_title() : m.files_copy_link()}
                           >
                             <Copy className="h-4 w-4" />
                           </button>
                           <a
                             href={api.cdnUrl(rel, true)}
-                            className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface2 hover:text-ink"
+                            className="hidden h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface2 hover:text-ink sm:grid"
                             aria-label={m.files_download()}
                             title={m.files_download()}
                           >
@@ -268,6 +308,17 @@ export default function FilesTab() {
                           </a>
                         </>
                       )}
+                      <button
+                        onClick={() => share.mutate({ rel, isPublic: !e.public })}
+                        className={cn(
+                          'grid h-8 w-8 place-items-center rounded-lg hover:bg-surface2',
+                          e.public ? 'text-primary' : e.viaParent ? 'text-primary/60' : 'text-muted hover:text-ink',
+                        )}
+                        aria-label={e.public ? m.files_make_private() : m.files_make_public()}
+                        title={e.public ? m.files_make_private() : e.viaParent ? m.files_public_via_parent() : m.files_make_public()}
+                      >
+                        {e.public || e.viaParent ? <Globe className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                      </button>
                       <button
                         onClick={() => setRenaming(e)}
                         className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface2 hover:text-ink"
@@ -300,6 +351,7 @@ export default function FilesTab() {
         {m.files_intro()}
         {entries.length > 0 && ` · ${m.files_items({ n: String(entries.length) })}`}
       </p>
+      <p className="text-xs text-muted">{m.files_share_hint()}</p>
 
       {renaming && (
         <RenameModal
@@ -320,7 +372,14 @@ export default function FilesTab() {
         />
       )}
 
-      {preview && <PreviewModal entry={preview} path={path} onClose={() => setPreview(null)} />}
+      {preview && (
+        <PreviewModal
+          entry={preview}
+          path={path}
+          shared={Boolean(preview.public || preview.viaParent)}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }
@@ -396,8 +455,9 @@ function NewFolderModal({
   );
 }
 
-function PreviewModal({ entry, path, onClose }: { entry: CdnEntry; path: string; onClose: () => void }) {
+function PreviewModal({ entry, path, shared, onClose }: { entry: CdnEntry; path: string; shared: boolean; onClose: () => void }) {
   const url = api.cdnUrl(join(path, entry.name));
+  const publicHref = api.publicUrl(join(path, entry.name));
   const mime = entry.mime || '';
   const ext = entry.name.includes('.') ? entry.name.split('.').pop()!.toLowerCase() : '';
   const text = mime.startsWith('text/plain') && ['txt', 'md', 'csv', 'json'].includes(ext);
@@ -420,9 +480,18 @@ function PreviewModal({ entry, path, onClose }: { entry: CdnEntry; path: string;
       size="lg"
       title={entry.name}
       footer={
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-muted tnum">{entry.size != null ? humanSize(entry.size) : ''} · {fmtDate(entry.modified)}</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {shared && (
+              <Button
+                variant="secondary"
+                onClick={() => { navigator.clipboard?.writeText(`${location.origin}${publicHref}`); }}
+              >
+                <Globe className="h-4 w-4" />
+                {m.files_copy_link()}
+              </Button>
+            )}
             <Button variant="ghost" onClick={onClose}>{m.common_close()}</Button>
             <a href={api.cdnUrl(join(path, entry.name), true)}>
               <Button variant="primary"><Download className="h-4 w-4" />{m.files_download()}</Button>

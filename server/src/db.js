@@ -118,6 +118,13 @@ CREATE TABLE IF NOT EXISTS subject_perms (
   PRIMARY KEY (subject_id, user_id)
 );
 
+-- Admin "Files" area (private CDN): paths that are shared publicly.
+-- A folder entry makes everything below it public, too.
+CREATE TABLE IF NOT EXISTS cdn_public (
+  path TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS email_tokens (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL,
@@ -448,6 +455,34 @@ export const attachments = {
     return attachments.byId(id);
   },
   remove: (id) => db.prepare('DELETE FROM attachments WHERE id = ?').run(id),
+};
+
+/* --------------------- private CDN: public sharing ------------------------- */
+
+export const cdnPublic = {
+  /** All explicitly-public paths. */
+  list: () => db.prepare('SELECT path FROM cdn_public').all().map((r) => r.path),
+  set: (p) => db.prepare('INSERT OR IGNORE INTO cdn_public (path, created_at) VALUES (?,?)').run(p, now()),
+  clear: (p) => db.prepare('DELETE FROM cdn_public WHERE path = ?').run(p),
+  /** Drop `p` and everything under it (on delete). */
+  removeTree: (p) => {
+    db.transaction(() => {
+      for (const row of db.prepare('SELECT path FROM cdn_public').all().map((r) => r.path)) {
+        if (row === p || row.startsWith(`${p}/`)) db.prepare('DELETE FROM cdn_public WHERE path = ?').run(row);
+      }
+    })();
+  },
+  /** Follow a rename/move so public entries keep pointing at the same files. */
+  renameTree: (from, to) => {
+    db.transaction(() => {
+      for (const row of db.prepare('SELECT path FROM cdn_public').all().map((r) => r.path)) {
+        if (row !== from && !row.startsWith(`${from}/`)) continue;
+        const moved = to + row.slice(from.length);
+        db.prepare('DELETE FROM cdn_public WHERE path = ?').run(row);
+        db.prepare('INSERT OR IGNORE INTO cdn_public (path, created_at) VALUES (?,?)').run(moved, now());
+      }
+    })();
+  },
 };
 
 /* --------------------------- subject permissions -------------------------- */

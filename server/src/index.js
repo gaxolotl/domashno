@@ -10,7 +10,7 @@ import { authRoutes } from './oauth.js';
 import { emailAuthRoutes } from './emailAuth.js';
 import { apiRouter } from './api.js';
 import { adminRoutes } from './admin.js';
-import { cdnRoutes } from './cdn.js';
+import { cdnRoutes, publicCdnRoutes } from './cdn.js';
 import { rateLimit } from './rateLimit.js';
 import { issueCsrf, requireCsrf } from './csrf.js';
 
@@ -33,6 +33,8 @@ app.use('/api/auth', emailAuthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', cdnRoutes);
+// Public file sharing (only paths explicitly shared from the admin Files tab).
+app.use('/api/cdn', publicCdnRoutes);
 app.use('/api', apiRouter);
 
 // Machine-readable capability manifest (Agentic Browsing / ARD): this app
