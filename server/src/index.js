@@ -38,7 +38,7 @@ app.use('/api', apiRouter);
 // Served dynamically (not from web/dist) so absolute URLs always match the
 // deployment's own domain. Mounted on both paths auditors check.
 function aiCatalog(req, res) {
-  const host = String(req.get('host') || '').split(',')[0].trim() || 'localhost';
+  const host = siteHost(req);
   res.set('Cache-Control', 'public, max-age=86400');
   res.json({
     specVersion: '1.0',
@@ -53,6 +53,28 @@ function aiCatalog(req, res) {
 }
 app.get('/ai-catalog.json', aiCatalog);
 app.get('/.well-known/ai-catalog.json', aiCatalog);
+
+// robots.txt + sitemap.xml are served dynamically (not from web/dist) so the
+// Sitemap URL and all listed URLs are absolute and always match this
+// deployment's own domain. Crawling is allowed: only logged-out pages
+// (/, /login, /terms, /privacy) are visible without sign-in anyway.
+function siteHost(req) {
+  return String(req.get('host') || '').split(',')[0].trim() || 'localhost';
+}
+app.get('/robots.txt', (req, res) => {
+  const host = siteHost(req);
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('text/plain').send(`User-agent: *\nAllow: /\n\nSitemap: https://${host}/sitemap.xml\n`);
+});
+app.get('/sitemap.xml', (req, res) => {
+  const host = siteHost(req);
+  const base = `https://${host}`;
+  const urls = ['/', '/login', '/terms', '/privacy']
+    .map((p) => `  <url><loc>${base}${p}</loc></url>`)
+    .join('\n');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`);
+});
 
 // Serve the built PWA when it exists (production / `npm run build`).
 if (fs.existsSync(WEB_DIST)) {
