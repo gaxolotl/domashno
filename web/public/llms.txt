@@ -1,0 +1,14 @@
+# Домашно
+
+> Class timetable + homework board for a school class. Sign-in required;
+> crawler access is disallowed (see robots.txt).
+
+Домашно (Domashno) lets a class import its weekly timetable from a Shkolo PDF
+and post homework with text and file attachments (photos, PDF, presentations).
+It installs as a PWA, works in Bulgarian and English, and has light/dark themes.
+
+- Terms of Service: /terms
+- Privacy Policy: /privacy
+- Source code: https://github.com/gaxolotl/domashno
+- Admin panel: /admin (restricted to the instance administrator)
+- API: same-origin JSON under /api (authentication required)

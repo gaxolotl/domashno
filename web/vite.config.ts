@@ -15,6 +15,9 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: 'autoUpdate',
+      // Deferred (not render-blocking): the app is fully usable before the
+      // service worker registers.
+      injectRegister: 'script-defer',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'Домашно — разписание и домашни',

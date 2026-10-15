@@ -1,18 +1,20 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { PageLoader } from './components/ui';
 import { api } from './lib/api';
 import { useClasses, useMe } from './lib/hooks';
+// Login is the first paint: keep it in the entry chunk. Everything else is
+// split into route chunks so the sign-in page downloads far less JavaScript.
 import LoginPage from './features/auth/LoginPage';
-import LegalPage from './features/legal/LegalPage';
-import OnboardingPage from './features/onboarding/OnboardingPage';
-import ClassShell from './features/class/ClassShell';
-import TodayPage from './features/today/TodayPage';
-import WeekPage from './features/week/WeekPage';
-import HomeworkPage from './features/homework/HomeworkPage';
-import SchedulePage from './features/schedule/SchedulePage';
-import SettingsPage from './features/settings/SettingsPage';
-import AdminPage from './features/admin/AdminPage';
+const LegalPage = lazy(() => import('./features/legal/LegalPage'));
+const OnboardingPage = lazy(() => import('./features/onboarding/OnboardingPage'));
+const ClassShell = lazy(() => import('./features/class/ClassShell'));
+const TodayPage = lazy(() => import('./features/today/TodayPage'));
+const WeekPage = lazy(() => import('./features/week/WeekPage'));
+const HomeworkPage = lazy(() => import('./features/homework/HomeworkPage'));
+const SchedulePage = lazy(() => import('./features/schedule/SchedulePage'));
+const SettingsPage = lazy(() => import('./features/settings/SettingsPage'));
+const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 
 export default function App() {
   const me = useMe();
@@ -39,12 +41,14 @@ export default function App() {
   const user = me.data?.user ?? null;
   if (!user) {
     return (
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/terms" element={<LegalPage doc="terms" />} />
-        <Route path="/privacy" element={<LegalPage doc="privacy" />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/terms" element={<LegalPage doc="terms" />} />
+          <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
     );
   }
 
@@ -54,20 +58,22 @@ export default function App() {
   const home = first ? `/class/${first}` : '/onboarding';
 
   return (
-    <Routes>
-      <Route path="/login" element={<Navigate to={home} replace />} />
-      <Route path="/terms" element={<LegalPage doc="terms" />} />
-      <Route path="/privacy" element={<LegalPage doc="privacy" />} />
-      <Route path="/onboarding" element={<OnboardingPage />} />
-      <Route path="/admin" element={<AdminPage />} />
-      <Route path="/class/:classId" element={<ClassShell />}>
-        <Route index element={<TodayPage />} />
-        <Route path="week" element={<WeekPage />} />
-        <Route path="homework" element={<HomeworkPage />} />
-        <Route path="schedule" element={<SchedulePage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
-      <Route path="*" element={<Navigate to={home} replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/login" element={<Navigate to={home} replace />} />
+        <Route path="/terms" element={<LegalPage doc="terms" />} />
+        <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/class/:classId" element={<ClassShell />}>
+          <Route index element={<TodayPage />} />
+          <Route path="week" element={<WeekPage />} />
+          <Route path="homework" element={<HomeworkPage />} />
+          <Route path="schedule" element={<SchedulePage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to={home} replace />} />
+      </Routes>
+    </Suspense>
   );
 }

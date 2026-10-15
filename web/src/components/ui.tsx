@@ -77,7 +77,7 @@ export function Field({ label, hint, children, htmlFor }: { label?: ReactNode; h
 }
 
 const control =
-  'w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted/60 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
+  'w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted/60 transition-[background-color,color,box-shadow] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25';
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cn(control, 'h-10', className)} />;

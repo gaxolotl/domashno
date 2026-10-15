@@ -17,15 +17,18 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Домашно — разписание и домашни за класа" />
     <meta name="twitter:image" content="/branding/social-preview.png" />
+    <meta
+      name="description"
+      content="Домашно — разписание и домашни за класа. Импортирай разписанието от Shkolo PDF, а класът добавя домашни със снимки, PDF и презентации."
+    />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="ai-catalog" href="/.well-known/ai-catalog.json" />
     <link rel="preconnect" href="https://challenges.cloudflare.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Self-hosted Golos Text (see src/fonts.css): preload the Cyrillic
+         face used above the fold so first paint rarely needs a font swap.
+         (One file serves all weights, same as Google's css2 response.) -->
+    <link rel="preload" href="/fonts/golos-text-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
     <title>Домашно</title>
     <script>
       // Set the theme before first paint to avoid a flash.

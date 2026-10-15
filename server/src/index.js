@@ -33,6 +33,27 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', apiRouter);
 
+// Machine-readable capability manifest (Agentic Browsing / ARD): this app
+// exposes no agent-callable resources, so the catalog is honestly empty.
+// Served dynamically (not from web/dist) so absolute URLs always match the
+// deployment's own domain. Mounted on both paths auditors check.
+function aiCatalog(req, res) {
+  const host = String(req.get('host') || '').split(',')[0].trim() || 'localhost';
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.json({
+    specVersion: '1.0',
+    host: {
+      displayName: 'Домашно',
+      identifier: `did:web:${host}`,
+      documentationUrl: 'https://github.com/gaxolotl/domashno',
+      logoUrl: `https://${host}/icons/icon-512.png`,
+    },
+    entries: [],
+  });
+}
+app.get('/ai-catalog.json', aiCatalog);
+app.get('/.well-known/ai-catalog.json', aiCatalog);
+
 // Serve the built PWA when it exists (production / `npm run build`).
 if (fs.existsSync(WEB_DIST)) {
   app.use(express.static(WEB_DIST, { index: false }));
