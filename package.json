@@ -19,10 +19,19 @@
     "dev:web": "npm --workspace web run dev",
     "build": "npm --workspace web run build",
     "start": "npm --workspace server run start",
-    "setup": "npm install && npm run build"
+    "setup": "npm install && npm run build",
+    "audit": "npm audit --audit-level=low",
+    "test:security": "node scripts/test-dependency-security.mjs && node server/scripts/test-class-features.mjs && node server/scripts/test-upload-security.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "deepmerge": "file:vendor/domashno-deepmerge-safe-1.0.0.tgz"
+  },
+  "overrides": {
+    "workbox-build": {
+      "glob": "14.0.4"
+    },
+    "deepmerge": "$deepmerge"
   },
   "allowScripts": {
     "better-sqlite3@11.10.0": true,

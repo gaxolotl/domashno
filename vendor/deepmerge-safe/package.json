@@ -1,0 +1,9 @@
+{
+  "name": "@domashno/deepmerge-safe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Security-patched, API-compatible deepmerge 4.3.1 for the Workbox build chain",
+  "main": "index.cjs",
+  "license": "MIT",
+  "engines": { "node": ">=20" }
+}

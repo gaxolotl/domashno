@@ -246,10 +246,15 @@ sudo apt update
 | `npm: command not found` | Install Node from NodeSource (step 2), not just Debian's `nodejs` |
 | Old app in the browser | Hard-reload once so the new service worker activates |
 | Uploads rejected | Raise `MAX_UPLOAD_MB` and nginx `client_max_body_size` |
+| `npm ci` fails with `EACCES` in `node_modules` | A previous npm command was run as root. Run `sudo chown -R domashno:domashno /opt/domashno/node_modules`, then rerun npm as the `domashno` user. Never use `chmod 777` |
 
 ---
 
 ## Handy commands
+
+Run `npm ci`/builds as `domashno`, not root. Dependency-security updates
+belong in the repository's committed lockfile; running `npm audit fix`
+directly on the VPS can create root-owned files and uncommitted lock changes.
 
 ```bash
 sudo systemctl restart domashno     # restart the app
