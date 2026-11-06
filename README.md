@@ -6,6 +6,8 @@ Timetable + homework board for a school class. Import the weekly timetable from 
 - **Shkolo PDF import** — reads the timetable automatically, you review and fix it, then save.
 - **Today, by the clock** — shows the lesson that just ended, the one happening now, and the next one, each with one-tap homework.
 - **Homework** with due dates, notes, and file uploads (photos, PDF, presentations, documents), editable and deletable.
+- **Lesson logs** — shared checkmarks on Today and Timetable show who recorded each dated lesson, even when there is no homework. Posting homework for a started lesson logs it automatically.
+- **Tests** — classmates can record teacher-announced assessments, subjects, dates (or not yet announced), periods, topics, pages, format and preparation notes.
 - **Classes** with invite codes and per-subject permissions for who may post homework.
 - **Admin panel** (`/admin`, gated by `ADMIN_EMAIL` in `.env`) — stats, user management, bans, login fingerprints, and per-class feature flags (upload limit, freeze, official/featured).
 - **Sign in** with Google / GitHub, or an email code — protected by Cloudflare Turnstile and Terms + Privacy acceptance.

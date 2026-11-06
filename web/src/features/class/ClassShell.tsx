@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  CalendarDays, ChevronDown, ListChecks, LogOut, NotebookPen, Plus, Settings, ShieldCheck, Ticket, type LucideIcon,
+  CalendarDays, ChevronDown, ClipboardCheck, ListChecks, LogOut, NotebookPen, Plus, Settings, ShieldCheck, Ticket, type LucideIcon,
 } from 'lucide-react';
 import { Avatar, Button, PageSkeleton, cn } from '../../components/ui';
 import { Logo } from '../../components/Brand';
@@ -30,8 +30,9 @@ interface NavItem { to: string; end: boolean; label: string; short?: string; ico
 function navItems(isAdmin: boolean) {
   const items: NavItem[] = [
     { to: '', end: true, label: m.nav_today(), icon: NotebookPen },
-    { to: 'week', end: false, label: m.nav_week(), icon: CalendarDays },
+    { to: 'week', end: false, label: m.nav_week(), short: m.nav_week_short(), icon: CalendarDays },
     { to: 'homework', end: false, label: m.nav_homework(), icon: ListChecks },
+    { to: 'tests', end: false, label: m.nav_tests(), icon: ClipboardCheck },
     { to: 'settings', end: false, label: m.nav_settings(), icon: Settings },
   ];
   if (isAdmin) items.push({ to: 'admin', end: false, label: m.admin_title(), short: m.admin_short(), icon: ShieldCheck, href: '/admin' });
@@ -103,6 +104,7 @@ function ShellLayout({ classId, name, user, children }: { classId: string; name:
               key={item.to || 'index'}
               to={toHref(item)}
               end={item.end}
+              aria-label={item.label}
               className={({ isActive }) => cn('flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors', isActive ? 'bg-primary-soft text-primary' : 'text-muted hover:bg-surface2 hover:text-ink')}
             >
               <item.icon className="h-[18px] w-[18px]" />
@@ -148,6 +150,7 @@ function ShellLayout({ classId, name, user, children }: { classId: string; name:
               key={item.to || 'index'}
               to={toHref(item)}
               end={item.end}
+              aria-label={item.label}
               className={({ isActive }) => cn('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[11px] font-medium transition-colors', isActive ? 'text-primary' : 'text-muted')}
             >
               {({ isActive }) => (

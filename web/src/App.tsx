@@ -13,6 +13,7 @@ const ClassShell = lazy(() => import('./features/class/ClassShell'));
 const TodayPage = lazy(() => import('./features/today/TodayPage'));
 const WeekPage = lazy(() => import('./features/week/WeekPage'));
 const HomeworkPage = lazy(() => import('./features/homework/HomeworkPage'));
+const TestsPage = lazy(() => import('./features/tests/TestsPage'));
 const SchedulePage = lazy(() => import('./features/schedule/SchedulePage'));
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
@@ -79,6 +80,7 @@ export default function App() {
           <Route index element={<TodayPage />} />
           <Route path="week" element={<WeekPage />} />
           <Route path="homework" element={<HomeworkPage />} />
+          <Route path="tests" element={<TestsPage />} />
           <Route path="schedule" element={<SchedulePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

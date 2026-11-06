@@ -14,6 +14,8 @@ export const qk = {
   bootstrap: ['bootstrap'] as const,
   class: (id: string) => ['class', id] as const,
   homework: (id: string, filter: string) => ['homework', id, filter] as const,
+  lessonLogs: (id: string, filter: string) => ['lesson-logs', id, filter] as const,
+  tests: (id: string) => ['tests', id] as const,
 };
 
 function invalidateClass(qc: QueryClient, classId: string) {
@@ -61,6 +63,41 @@ export function useHomework(classId: string | undefined, filter: { from?: string
     queryKey: qk.homework(classId || 'none', filterKey),
     queryFn: () => api.homework(classId!, filter),
     enabled: Boolean(classId),
+  });
+}
+
+export function useLessonLogs(classId: string | undefined, filter: { from?: string; to?: string } = {}) {
+  const filterKey = JSON.stringify(filter);
+  return useQuery({
+    queryKey: qk.lessonLogs(classId || 'none', filterKey),
+    queryFn: () => api.lessonLogs(classId!, filter),
+    enabled: Boolean(classId),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useLogLesson(classId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { date: string; period: number; subject_id?: string | null }) => api.logLesson(classId, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lesson-logs', classId] }),
+  });
+}
+
+export function useUnlogLesson(classId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ date, period }: { date: string; period: number }) => api.unlogLesson(classId, date, period),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lesson-logs', classId] }),
+  });
+}
+
+export function useTests(classId: string | undefined) {
+  return useQuery({
+    queryKey: qk.tests(classId || 'none'),
+    queryFn: () => api.tests(classId!),
+    enabled: Boolean(classId),
+    refetchInterval: 30_000,
   });
 }
 

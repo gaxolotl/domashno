@@ -100,6 +100,38 @@ CREATE TABLE IF NOT EXISTS homework (
 );
 CREATE INDEX IF NOT EXISTS idx_hw_class_due ON homework(class_id, due_date);
 
+-- A shared record that a scheduled lesson occurrence was heard/completed.
+-- Period is the occurrence key: one class cannot have two different lessons
+-- in the same period on the same date in this app's timetable model.
+CREATE TABLE IF NOT EXISTS lesson_logs (
+  id TEXT PRIMARY KEY,
+  class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  lesson_date TEXT NOT NULL,
+  period INTEGER NOT NULL,
+  subject_id TEXT REFERENCES subjects(id) ON DELETE SET NULL,
+  subject_name TEXT NOT NULL,
+  logged_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  logged_at TEXT NOT NULL,
+  UNIQUE(class_id, lesson_date, period)
+);
+CREATE INDEX IF NOT EXISTS idx_lesson_logs_class_date ON lesson_logs(class_id, lesson_date);
+
+-- Announced tests/assessments shared by the class.
+CREATE TABLE IF NOT EXISTS tests (
+  id TEXT PRIMARY KEY,
+  class_id TEXT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  subject_id TEXT REFERENCES subjects(id) ON DELETE SET NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  kind TEXT NOT NULL DEFAULT 'test',
+  title TEXT NOT NULL,
+  details TEXT,
+  test_date TEXT,
+  period INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tests_class_date ON tests(class_id, test_date);
+
 CREATE TABLE IF NOT EXISTS attachments (
   id TEXT PRIMARY KEY,
   homework_id TEXT NOT NULL REFERENCES homework(id) ON DELETE CASCADE,
@@ -439,6 +471,95 @@ export const homework = {
     return homework.byId(id);
   },
   remove: (id) => db.prepare('DELETE FROM homework WHERE id = ?').run(id),
+};
+
+/* ------------------------------ lesson logs ------------------------------- */
+
+const hydrateLessonLog = (row) => {
+  if (!row) return null;
+  const logger = row.logged_by ? users.byId(row.logged_by) : null;
+  return {
+    ...row,
+    logger: logger ? { id: logger.id, name: logger.name, avatar_url: logger.avatar_url } : null,
+  };
+};
+
+export const lessonLogs = {
+  list: (classId, { from, to } = {}) => {
+    let sql = 'SELECT * FROM lesson_logs WHERE class_id = ?';
+    const args = [classId];
+    if (from) { sql += ' AND lesson_date >= ?'; args.push(from); }
+    if (to) { sql += ' AND lesson_date <= ?'; args.push(to); }
+    sql += ' ORDER BY lesson_date ASC, period ASC';
+    return db.prepare(sql).all(...args).map(hydrateLessonLog);
+  },
+  get: (classId, date, period) =>
+    hydrateLessonLog(db.prepare('SELECT * FROM lesson_logs WHERE class_id = ? AND lesson_date = ? AND period = ?').get(classId, date, period)),
+  upsert: ({ classId, date, period, subjectId, subjectName, userId }) => {
+    const existing = db.prepare('SELECT id FROM lesson_logs WHERE class_id = ? AND lesson_date = ? AND period = ?')
+      .get(classId, date, period);
+    // The first logger wins. A later homework post must not replace the name
+    // of the classmate who actually marked the lesson as heard.
+    if (existing) return lessonLogs.get(classId, date, period);
+    const id = newId();
+    db.prepare(`INSERT INTO lesson_logs
+      (id,class_id,lesson_date,period,subject_id,subject_name,logged_by,logged_at)
+      VALUES (?,?,?,?,?,?,?,?)`)
+      .run(id, classId, date, period, subjectId ?? null, sanitizeText(subjectName) || '—', userId, now());
+    return lessonLogs.get(classId, date, period);
+  },
+  remove: (classId, date, period) =>
+    db.prepare('DELETE FROM lesson_logs WHERE class_id = ? AND lesson_date = ? AND period = ?').run(classId, date, period),
+};
+
+/* ---------------------------------- tests --------------------------------- */
+
+function hydrateTest(row) {
+  if (!row) return null;
+  const subject = row.subject_id ? subjects.byId(row.subject_id) : null;
+  const author = row.created_by ? users.byId(row.created_by) : null;
+  return {
+    ...row,
+    subject: subject ? { id: subject.id, name: subject.name, color: subject.color, teacher: subject.teacher } : null,
+    author: author ? { id: author.id, name: author.name, avatar_url: author.avatar_url } : null,
+  };
+}
+
+export const tests = {
+  list: (classId, { from, to } = {}) => {
+    let sql = 'SELECT * FROM tests WHERE class_id = ?';
+    const args = [classId];
+    if (from) { sql += ' AND test_date >= ?'; args.push(from); }
+    if (to) { sql += ' AND test_date <= ?'; args.push(to); }
+    sql += ' ORDER BY (test_date IS NULL) ASC, test_date ASC, COALESCE(period, 99) ASC, created_at ASC';
+    return db.prepare(sql).all(...args).map(hydrateTest);
+  },
+  byId: (id) => hydrateTest(db.prepare('SELECT * FROM tests WHERE id = ?').get(id)),
+  raw: (id) => db.prepare('SELECT * FROM tests WHERE id = ?').get(id),
+  create: ({ classId, subjectId, createdBy, kind, title, details, testDate, period = null }) => {
+    const id = newId();
+    const stamp = now();
+    db.prepare(`INSERT INTO tests
+      (id,class_id,subject_id,created_by,kind,title,details,test_date,period,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(id, classId, subjectId ?? null, createdBy, kind, sanitizeText(title),
+        details == null ? null : sanitizeText(details), testDate, period, stamp, stamp);
+    return tests.byId(id);
+  },
+  update: (id, { subjectId, kind, title, details, testDate, period }) => {
+    const t = tests.raw(id);
+    if (!t) return null;
+    db.prepare(`UPDATE tests SET subject_id=?, kind=?, title=?, details=?, test_date=?, period=?, updated_at=? WHERE id=?`)
+      .run(subjectId === undefined ? t.subject_id : subjectId,
+        kind ?? t.kind,
+        sanitizeText(title ?? t.title),
+        details === undefined ? t.details : (details == null ? null : sanitizeText(details)),
+        testDate === undefined ? t.test_date : testDate,
+        period === undefined ? t.period : period,
+        now(), id);
+    return tests.byId(id);
+  },
+  remove: (id) => db.prepare('DELETE FROM tests WHERE id = ?').run(id),
 };
 
 /* ------------------------------ attachments ------------------------------- */

@@ -101,7 +101,7 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           paragraphs: ['Събираме само това, без което приложението не работи:'],
           bullets: [
             'Акаунт: име, имейл адрес (потвърден с код), профилна снимка — само ако влизате чрез [Google](https://www.google.com) или [GitHub](https://github.com).',
-            'Съдържание: домашни, файлове, разписания, класове и членства в тях.',
+            'Съдържание: домашни, файлове, обявени тестове, отметки за записани часове (кой и кога ги е отбелязал), разписания, класове и членства в тях.',
             'Технически данни за сигурност: IP адрес, браузър и устройство, час на влизане.',
             'Бисквитки: сесия за вход и защита от фалшиви заявки (строго необходими), тема и език (запазени във вашия браузър). Рекламни бисквитки няма.',
             'Проверка за бот при вход ([Cloudflare](https://www.cloudflare.com) Turnstile): Cloudflare получава IP адреса и технически данни за браузъра, за да различи човек от бот.',
@@ -246,7 +246,7 @@ export const legal: Record<'bg' | 'en', { terms: LegalDoc; privacy: LegalDoc }> 
           paragraphs: ['We collect only what the app cannot work without:'],
           bullets: [
             'Account: name, email address (verified with a code), profile picture — only when you sign in via [Google](https://www.google.com) or [GitHub](https://github.com).',
-            'Content: homework, files, timetables, classes and memberships.',
+            'Content: homework, files, announced tests, recorded-lesson checkmarks (who marked them and when), timetables, classes and memberships.',
             'Technical security data: IP address, browser and device, sign-in time.',
             'Cookies: sign-in session and anti-forgery protection (strictly necessary), theme and language (stored in your browser). No advertising cookies.',
             'Bot check at sign-in ([Cloudflare](https://www.cloudflare.com) Turnstile): Cloudflare receives the IP address and technical browser data to tell humans from bots.',

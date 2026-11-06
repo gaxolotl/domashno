@@ -5,10 +5,11 @@ import { Button, Card, EmptyState, HomeworkGridSkeleton, cn, revealDelay } from 
 import { useClassCtx } from '../class/ClassShell';
 import { HomeworkEditor } from '../homework/HomeworkEditor';
 import { HomeworkCard } from '../homework/HomeworkCard';
-import { useConfig, useDeleteHomework, useHomework, useMe } from '../../lib/hooks';
+import { useConfig, useDeleteHomework, useHomework, useLessonLogs, useMe } from '../../lib/hooks';
 import { formatFullDate, isoWeekday, todayISO } from '../../lib/dates';
 import { nextLessonAfter } from '../../lib/timetable';
-import type { Homework, Slot } from '../../lib/api';
+import type { Homework, LessonLog, Slot } from '../../lib/api';
+import { LessonLogButton, LessonLogStatus } from '../schedule/LessonLogButton';
 import { getLocale } from '../../paraglide/runtime';
 import { m } from '../../paraglide/messages';
 
@@ -32,12 +33,18 @@ function MiniLesson({
   time,
   onAdd,
   active,
+  date,
+  log,
+  logsLoading,
 }: {
   label: string;
   lesson: Slot | null;
   time: string;
   onAdd: (lesson: Slot) => void;
   active?: boolean;
+  date: string;
+  log?: LessonLog;
+  logsLoading: boolean;
 }) {
   return (
     <div className={cn('rounded-xl border p-2.5', active ? 'border-primary bg-primary-soft/50' : 'border-line bg-surface')}>
@@ -46,7 +53,7 @@ function MiniLesson({
         <>
           <p className="mt-1 truncate text-sm font-semibold text-ink" title={lesson.subject}>{lesson.subject}</p>
           <div className="mt-1 flex items-center justify-between gap-1">
-            <span className="text-xs text-muted tnum">{time || '—'}</span>
+            <span className="whitespace-nowrap text-[10px] text-muted tnum">{time || '—'}</span>
             <button
               onClick={() => onAdd(lesson)}
               className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface2 text-ink transition-colors hover:bg-primary hover:text-primary-ink"
@@ -55,6 +62,10 @@ function MiniLesson({
             >
               <Plus className="h-4 w-4" />
             </button>
+          </div>
+          <div className="mt-2">
+            <LessonLogButton date={date} lesson={lesson} log={log} compact loading={logsLoading} />
+            <LessonLogStatus log={log} compact />
           </div>
         </>
       ) : (
@@ -73,8 +84,15 @@ export default function TodayPage() {
   const { data: config } = useConfig();
   const del = useDeleteHomework(classId);
   const now = useNow();
+  const logsQ = useLessonLogs(classId, { from: today, to: today });
 
-  const [ed, setEd] = useState<{ open: boolean; subjectId?: string | null; date?: string; editing?: Homework | null }>({ open: false });
+  const [ed, setEd] = useState<{
+    open: boolean;
+    subjectId?: string | null;
+    date?: string;
+    editing?: Homework | null;
+    source?: { date: string; period: number; subjectId: string | null };
+  }>({ open: false });
 
   const lessons = useMemo(
     () => detail.schedule.filter((s) => s.day === day).sort((a, b) => a.period - b.period),
@@ -107,8 +125,14 @@ export default function TodayPage() {
   const dueDateFor = (lesson: Slot | null) =>
     nextLessonAfter(detail.schedule, lesson?.subject_id ?? null, today) ?? today;
   const openAdd = (lesson: Slot) =>
-    setEd({ open: true, date: dueDateFor(lesson), subjectId: lesson.subject_id ?? null });
+    setEd({
+      open: true,
+      date: dueDateFor(lesson),
+      subjectId: lesson.subject_id ?? null,
+      source: { date: today, period: lesson.period, subjectId: lesson.subject_id ?? null },
+    });
   const colorOf = (l: Slot) => l.color || subjectColor(l.subject_id ?? null);
+  const logByPeriod = new Map((logsQ.data?.logs ?? []).map((log) => [log.period, log]));
 
   // The lesson the user most likely wants to add homework for right now.
   const focus = current ?? previous ?? next ?? lessons[lessons.length - 1] ?? null;
@@ -123,7 +147,10 @@ export default function TodayPage() {
           <h1 className="mt-1 text-2xl capitalize sm:text-3xl">{formatFullDate(today, getLocale())}</h1>
           <p className="mt-1 text-sm text-muted">{lessons.length} {m.today_lessons()}</p>
         </div>
-        <Button variant="primary" onClick={() => setEd({ open: true, date: dueDateFor(focus), subjectId: focus?.subject_id ?? null })}>
+        <Button
+          variant="primary"
+          onClick={() => focus ? openAdd(focus) : setEd({ open: true })}
+        >
           <Plus className="h-4 w-4" />
           {m.today_add_homework()}
         </Button>
@@ -154,10 +181,14 @@ export default function TodayPage() {
                     {focus.teacher && <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5" />{focus.teacher}</span>}
                     {focus.room && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{focus.room}</span>}
                   </div>
-                  <Button variant="primary" className="mt-3" onClick={() => openAdd(focus)}>
-                    <Plus className="h-4 w-4" />
-                    {m.today_add_homework()}
-                  </Button>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button variant="primary" onClick={() => openAdd(focus)}>
+                      <Plus className="h-4 w-4" />
+                      {m.today_add_homework()}
+                    </Button>
+                    <LessonLogButton date={today} lesson={focus} log={logByPeriod.get(focus.period)} loading={logsQ.isLoading} />
+                  </div>
+                  <LessonLogStatus log={logByPeriod.get(focus.period)} />
                 </div>
               </div>
             </Card>
@@ -165,18 +196,20 @@ export default function TodayPage() {
 
           {timed.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
-              <MiniLesson label={m.today_prev()} lesson={previous} time={previous ? `${previous.start}–${previous.end}` : ''} onAdd={openAdd} />
-              <MiniLesson label={m.today_now()} lesson={current} time={current ? `${current.start}–${current.end}` : ''} onAdd={openAdd} active />
-              <MiniLesson label={m.today_next()} lesson={next} time={next ? `${next.start}–${next.end}` : ''} onAdd={openAdd} />
+              <MiniLesson date={today} log={previous ? logByPeriod.get(previous.period) : undefined} logsLoading={logsQ.isLoading} label={m.today_prev()} lesson={previous} time={previous ? `${previous.start}–${previous.end}` : ''} onAdd={openAdd} />
+              <MiniLesson date={today} log={current ? logByPeriod.get(current.period) : undefined} logsLoading={logsQ.isLoading} label={m.today_now()} lesson={current} time={current ? `${current.start}–${current.end}` : ''} onAdd={openAdd} active />
+              <MiniLesson date={today} log={next ? logByPeriod.get(next.period) : undefined} logsLoading={logsQ.isLoading} label={m.today_next()} lesson={next} time={next ? `${next.start}–${next.end}` : ''} onAdd={openAdd} />
             </div>
           )}
 
           {/* Full day */}
           <section className="space-y-2">
+              <p className="text-xs text-muted">{m.lesson_log_hint()}</p>
               {lessons.map((lesson, li) => {
                 const hw = lesson.subject_id ? bySubject.get(lesson.subject_id) ?? [] : [];
                 const color = colorOf(lesson);
                 const isNow = current?.id === lesson.id || (current && current.period === lesson.period && current.day === lesson.day);
+                const log = logByPeriod.get(lesson.period);
                 return (
                   <Card key={lesson.id ?? `${lesson.day}-${lesson.period}`} className={cn('animate-rise overflow-hidden', isNow && 'ring-2 ring-primary/40')} style={revealDelay(li)}>
                     <div className="flex items-center gap-3 px-3 py-2.5">
@@ -189,7 +222,9 @@ export default function TodayPage() {
                           {lesson.room && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{lesson.room}</span>}
                           {lesson.start && <span className="tnum">{lesson.start}–{lesson.end}</span>}
                         </div>
+                        <LessonLogStatus log={log} />
                       </div>
+                      <LessonLogButton date={today} lesson={lesson} log={log} loading={logsQ.isLoading} />
                       <button
                         onClick={() => openAdd(lesson)}
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-surface2 hover:text-primary"
@@ -255,6 +290,7 @@ export default function TodayPage() {
         editing={ed.editing}
         defaultDate={ed.date}
         defaultSubjectId={ed.subjectId}
+        sourceLesson={ed.source}
         canPost={canPost}
         maxMb={detail.class.features?.upload_mb ?? config?.maxUploadMb ?? 25}
       />

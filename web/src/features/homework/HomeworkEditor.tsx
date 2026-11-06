@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Paperclip, Trash2, UploadCloud } from 'lucide-react';
 import { Button, Field, Input, Modal, Select, Textarea, cn, useToast } from '../../components/ui';
 import { api, ApiError, type Attachment, type Homework, type Slot, type Subject } from '../../lib/api';
@@ -95,6 +96,7 @@ export function HomeworkEditor({
   editing,
   defaultDate,
   defaultSubjectId,
+  sourceLesson,
   canPost,
   maxMb,
 }: {
@@ -106,10 +108,13 @@ export function HomeworkEditor({
   editing?: Homework | null;
   defaultDate?: string;
   defaultSubjectId?: string | null;
+  /** Timetable occurrence this editor was opened from; creating homework logs it automatically. */
+  sourceLesson?: { date: string; period: number; subjectId: string | null };
   canPost: (subjectId: string | null) => boolean;
   maxMb: number;
 }) {
   const toast = useToast();
+  const qc = useQueryClient();
   const [subjectId, setSubjectId] = useState<string>('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -195,16 +200,28 @@ export function HomeworkEditor({
         });
         toast.push(m.hw_saved(), 'success');
       } else {
-        const { homework } = await api.createHomework(classId, {
+        const { homework, lesson_log } = await api.createHomework(classId, {
           subject_id: subjectId || null,
           title: title.trim(),
           body: body.trim(),
           due_date: due.date,
           due_period: due.period,
+          ...(sourceLesson ? {
+            lesson_date: sourceLesson.date,
+            lesson_period: sourceLesson.period,
+            lesson_subject_id: sourceLesson.subjectId,
+          } : {}),
         });
+        // The record and lesson log are already saved, even if a later upload
+        // fails. Refresh shared data now rather than leaving stale checkmarks.
+        qc.invalidateQueries({ queryKey: ['homework', classId] });
+        qc.invalidateQueries({ queryKey: ['lesson-logs', classId] });
         if (pending.length) await api.uploadFiles(homework.id, pending);
         toast.push(m.hw_created(), 'success');
+        if (lesson_log) toast.push(m.lesson_auto_logged(), 'success');
       }
+      qc.invalidateQueries({ queryKey: ['homework', classId] });
+      if (sourceLesson) qc.invalidateQueries({ queryKey: ['lesson-logs', classId] });
       onClose();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : m.common_error());

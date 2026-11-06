@@ -195,6 +195,10 @@ Until it's verified, email sign-in fails with `email_failed`.
 
 ## 9. Updating later
 
+Lesson logging uses the school clock (`SCHOOL_TIME_ZONE=Europe/Sofia` by
+default), not the VPS timezone. The lesson-log and test tables are created
+automatically on startup; existing homework and timetable data are preserved.
+
 ```bash
 cd /opt/domashno
 sudo -u domashno git pull

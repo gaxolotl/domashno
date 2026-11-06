@@ -2,10 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import multer from 'multer';
-import { UPLOAD_DIR, MAX_UPLOAD_MB, TURNSTILE, LEGAL_CONTACT_EMAIL, oauthEnabled, ENABLE_DEV_LOGIN } from './env.js';
+import { UPLOAD_DIR, MAX_UPLOAD_MB, TURNSTILE, LEGAL_CONTACT_EMAIL, oauthEnabled, ENABLE_DEV_LOGIN, SCHOOL_TIME_ZONE } from './env.js';
 import {
   users, classes, members, subjects, slots, homework, attachments,
   subjectPerms, canPostFor, parseFeatures, loginEvents, schools, SUBJECT_COLORS,
+  lessonLogs, tests, db,
 } from './db.js';
 import { requireAuth, requireMembership, isOwner, isAdmin } from './auth.js';
 import { publicUser } from './oauth.js';
@@ -44,6 +45,29 @@ const homeworkView = (h) => ({
   subject: h.subject,
   author: h.author,
   attachments: (h.attachments || []).map(attachmentView),
+});
+
+const lessonLogView = (log) => ({
+  id: log.id,
+  date: log.lesson_date,
+  period: log.period,
+  subject_id: log.subject_id ?? null,
+  subject_name: log.subject_name,
+  logged_at: log.logged_at,
+  logger: log.logger,
+});
+
+const testView = (t) => ({
+  id: t.id,
+  kind: t.kind,
+  title: t.title,
+  details: t.details,
+  test_date: t.test_date,
+  period: t.period ?? null,
+  created_at: t.created_at,
+  updated_at: t.updated_at,
+  subject: t.subject,
+  author: t.author,
 });
 
 const subjectView = (s) => ({
@@ -400,6 +424,90 @@ apiRouter.post('/classes/:id/import/pdf', requireAuth, requireMembership('id'), 
   }
 }));
 
+/* ------------------------------- lesson log ------------------------------- */
+
+const isoWeekday = (iso) => {
+  const day = new Date(`${iso}T12:00:00Z`).getUTCDay();
+  return day === 0 ? 7 : day;
+};
+
+const validCalendarDate = (iso) => {
+  if (!isDate(iso)) return false;
+  const date = new Date(`${iso}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === iso;
+};
+
+function schoolClock() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: SCHOOL_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return { date: `${get('year')}-${get('month')}-${get('day')}`, time: `${get('hour')}:${get('minute')}` };
+}
+
+/** Find the scheduled lesson occurrence represented by date + period. */
+function scheduledOccurrence(classId, date, period, preferredSubjectId = null) {
+  const candidates = slots.list(classId).filter((s) => s.day === isoWeekday(date) && s.period === period);
+  if (!candidates.length) return null;
+  const slot = preferredSubjectId
+    ? candidates.find((s) => s.subject_id === preferredSubjectId)
+    : candidates[0];
+  if (!slot) return null;
+  const subject = slot.subject_id ? subjects.byId(slot.subject_id) : null;
+  return {
+    subjectId: slot.subject_id ?? null,
+    subjectName: subject?.name ?? slot.label ?? '—',
+    startTime: slot.start_time,
+  };
+}
+
+apiRouter.get('/classes/:id/lesson-logs', requireAuth, requireMembership('id'), (req, res) => {
+  const from = validCalendarDate(req.query.from) ? req.query.from : undefined;
+  const to = validCalendarDate(req.query.to) ? req.query.to : undefined;
+  res.set('Cache-Control', 'no-store');
+  res.json({ logs: lessonLogs.list(req.classId, { from, to }).map(lessonLogView) });
+});
+
+apiRouter.put('/classes/:id/lesson-logs', requireAuth, requireMembership('id'), writeLimiter, (req, res) => {
+  if (classReadOnly(req.classId, req.user)) return forbidden(res, 'class_read_only');
+  const date = String(req.body?.date || '');
+  const period = parsePeriod(req.body?.period);
+  const preferredSubjectId = req.body?.subject_id ? String(req.body.subject_id) : null;
+  if (!validCalendarDate(date) || period === null) return badRequest(res, 'Valid date and period are required');
+  const clock = schoolClock();
+  if (date > clock.date) return badRequest(res, 'Cannot log a future lesson');
+  const occurrence = scheduledOccurrence(req.classId, date, period, preferredSubjectId);
+  if (!occurrence) return badRequest(res, 'There is no scheduled lesson in that period');
+  if (date === clock.date && occurrence.startTime && occurrence.startTime > clock.time) {
+    return badRequest(res, 'Cannot log a lesson before it starts');
+  }
+  const log = lessonLogs.upsert({
+    classId: req.classId,
+    date,
+    period,
+    subjectId: occurrence.subjectId,
+    subjectName: occurrence.subjectName,
+    userId: req.user.id,
+  });
+  res.json({ log: lessonLogView(log) });
+});
+
+apiRouter.delete('/classes/:id/lesson-logs', requireAuth, requireMembership('id'), writeLimiter, (req, res) => {
+  if (classReadOnly(req.classId, req.user)) return forbidden(res, 'class_read_only');
+  const date = String(req.query.date || '');
+  const period = parsePeriod(req.query.period);
+  if (!validCalendarDate(date) || period === null) return badRequest(res, 'Valid date and period are required');
+  const existing = lessonLogs.get(req.classId, date, period);
+  if (!existing) return notFound(res, 'Lesson log not found');
+  const owner = req.membership.role === 'owner';
+  if (!owner && existing.logged_by !== req.user.id && !isAdmin(req.user)) {
+    return forbidden(res, 'Only the logger or class owner can unlog this lesson');
+  }
+  lessonLogs.remove(req.classId, date, period);
+  res.json({ ok: true });
+});
+
 /* --------------------------------- homework -------------------------------- */
 
 apiRouter.get('/classes/:id/homework', requireAuth, requireMembership('id'), (req, res) => {
@@ -426,16 +534,146 @@ apiRouter.post('/classes/:id/homework', requireAuth, requireMembership('id'), wr
   if (!canPostFor(req.classId, subjectId, req.user.id)) {
     return forbidden(res, 'You are not allowed to post homework for this subject');
   }
-  const created = homework.create({
+  let source = null;
+  const clock = schoolClock();
+  if (req.body?.lesson_date !== undefined || req.body?.lesson_period !== undefined) {
+    const date = req.body.lesson_date;
+    const period = parsePeriod(req.body.lesson_period);
+    if (!validCalendarDate(date) || period === null) return badRequest(res, 'Invalid source lesson');
+    const occurrence = scheduledOccurrence(req.classId, date, period,
+      req.body.lesson_subject_id ? String(req.body.lesson_subject_id) : null);
+    if (!occurrence) return badRequest(res, 'Source lesson is no longer in the timetable');
+    // Homework can be due in a future lesson; that is not an attendance record.
+    if (date < clock.date || (date === clock.date && (!occurrence.startTime || occurrence.startTime <= clock.time))) {
+      source = { date, period, ...occurrence };
+    }
+  } else if (subjectId) {
+    // From the Homework tab there is no explicit source row. Use the most
+    // recent occurrence of this subject today only if it has already started.
+    const slot = slots.list(req.classId)
+      .filter((s) => s.day === isoWeekday(clock.date) && s.subject_id === subjectId
+        && s.start_time && s.start_time <= clock.time)
+      .sort((a, b) => b.period - a.period)[0];
+    if (slot) source = { date: clock.date, period: slot.period, ...scheduledOccurrence(req.classId, clock.date, slot.period, subjectId) };
+  }
+
+  const result = db.transaction(() => {
+    const created = homework.create({
+      classId: req.classId,
+      subjectId,
+      createdBy: req.user.id,
+      title,
+      body: req.body?.body != null ? String(req.body.body) : null,
+      dueDate: due,
+      duePeriod: parsePeriod(req.body?.due_period),
+    });
+    const lessonLog = source ? lessonLogs.upsert({
+      classId: req.classId, ...source, userId: req.user.id,
+    }) : null;
+    return { created, lessonLog };
+  })();
+  res.status(201).json({
+    homework: homeworkView(result.created),
+    lesson_log: result.lessonLog ? lessonLogView(result.lessonLog) : null,
+  });
+});
+
+/* ---------------------------------- tests --------------------------------- */
+
+const TEST_KINDS = new Set(['test', 'exam', 'quiz', 'oral', 'other']);
+
+apiRouter.get('/classes/:id/tests', requireAuth, requireMembership('id'), (req, res) => {
+  const from = validCalendarDate(req.query.from) ? req.query.from : undefined;
+  const to = validCalendarDate(req.query.to) ? req.query.to : undefined;
+  res.set('Cache-Control', 'no-store');
+  res.json({ tests: tests.list(req.classId, { from, to }).map(testView) });
+});
+
+apiRouter.post('/classes/:id/tests', requireAuth, requireMembership('id'), writeLimiter, (req, res) => {
+  if (classReadOnly(req.classId, req.user)) return forbidden(res, 'class_read_only');
+  if (typeof req.body?.title !== 'string') return badRequest(res, 'Title is required');
+  const title = sanitizeText(req.body?.title) || '';
+  const testDate = req.body?.test_date || null;
+  const subjectId = req.body?.subject_id ? String(req.body.subject_id) : null;
+  const kind = req.body?.kind ?? 'test';
+  if (!TEST_KINDS.has(kind)) return badRequest(res, 'Invalid test kind');
+  if (!title) return badRequest(res, 'Title is required');
+  if (title.length > 200 || String(req.body?.details || '').length > 20000) return badRequest(res, 'Test text is too long');
+  if (testDate !== null && !validCalendarDate(testDate)) return badRequest(res, 'Invalid test date');
+  if (req.body?.period != null && req.body.period !== '' && parsePeriod(req.body.period) === null) return badRequest(res, 'Invalid lesson period');
+  if (subjectId) {
+    const subject = subjects.byId(subjectId);
+    if (!subject || subject.class_id !== req.classId) return badRequest(res, 'Unknown subject');
+  }
+  const created = tests.create({
     classId: req.classId,
     subjectId,
     createdBy: req.user.id,
+    kind,
     title,
-    body: req.body?.body != null ? String(req.body.body) : null,
-    dueDate: due,
-    duePeriod: parsePeriod(req.body?.due_period),
+    details: req.body?.details != null ? String(req.body.details) : null,
+    testDate,
+    period: parsePeriod(req.body?.period),
   });
-  res.status(201).json({ homework: homeworkView(created) });
+  res.status(201).json({ test: testView(created) });
+});
+
+function testForWrite(req, res) {
+  const t = tests.raw(req.params.testId);
+  if (!t) { notFound(res, 'Test not found'); return null; }
+  const membership = members.get(t.class_id, req.user.id);
+  if (!membership) { forbidden(res, 'Not a member'); return null; }
+  if (classReadOnly(t.class_id, req.user)) { forbidden(res, 'class_read_only'); return null; }
+  if (membership.role !== 'owner' && t.created_by !== req.user.id && !isAdmin(req.user)) {
+    forbidden(res, 'Only the author or class owner can edit this test');
+    return null;
+  }
+  return t;
+}
+
+apiRouter.patch('/tests/:testId', requireAuth, writeLimiter, (req, res) => {
+  const t = testForWrite(req, res);
+  if (!t) return;
+  const patch = {};
+  if (req.body?.title !== undefined) {
+    if (typeof req.body.title !== 'string') return badRequest(res, 'Title is required');
+    const title = sanitizeText(req.body.title);
+    if (!title) return badRequest(res, 'Title is required');
+    if (title.length > 200) return badRequest(res, 'Test text is too long');
+    patch.title = title;
+  }
+  if (req.body?.test_date !== undefined) {
+    if (req.body.test_date && !validCalendarDate(req.body.test_date)) return badRequest(res, 'Invalid test date');
+    patch.testDate = req.body.test_date || null;
+  }
+  if (req.body?.subject_id !== undefined) {
+    const sid = req.body.subject_id ? String(req.body.subject_id) : null;
+    if (sid) {
+      const subject = subjects.byId(sid);
+      if (!subject || subject.class_id !== t.class_id) return badRequest(res, 'Unknown subject');
+    }
+    patch.subjectId = sid;
+  }
+  if (req.body?.kind !== undefined) {
+    if (!TEST_KINDS.has(req.body.kind)) return badRequest(res, 'Invalid test kind');
+    patch.kind = req.body.kind;
+  }
+  if (req.body?.details !== undefined) {
+    if (String(req.body.details || '').length > 20000) return badRequest(res, 'Test text is too long');
+    patch.details = req.body.details == null ? null : String(req.body.details);
+  }
+  if (req.body?.period !== undefined) {
+    if (req.body.period != null && req.body.period !== '' && parsePeriod(req.body.period) === null) return badRequest(res, 'Invalid lesson period');
+    patch.period = parsePeriod(req.body.period);
+  }
+  res.json({ test: testView(tests.update(t.id, patch)) });
+});
+
+apiRouter.delete('/tests/:testId', requireAuth, writeLimiter, (req, res) => {
+  const t = testForWrite(req, res);
+  if (!t) return;
+  tests.remove(t.id);
+  res.json({ ok: true });
 });
 
 /** Accept 0..12 or null. Returns null for anything unusable. */

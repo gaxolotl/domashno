@@ -3,7 +3,8 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button, Card, EmptyState, cn, revealDelay } from '../../components/ui';
 import { useClassCtx } from '../class/ClassShell';
 import { HomeworkEditor } from '../homework/HomeworkEditor';
-import { useConfig, useHomework } from '../../lib/hooks';
+import { useConfig, useHomework, useLessonLogs } from '../../lib/hooks';
+import { LessonLogButton } from '../schedule/LessonLogButton';
 import type { Homework } from '../../lib/api';
 import { addDays, formatDayMonth, startOfWeek, todayISO } from '../../lib/dates';
 import { getLocale } from '../../paraglide/runtime';
@@ -21,8 +22,16 @@ export default function WeekPage() {
   const sunday = addDays(monday, 6);
   const { data } = useHomework(classId, { from: monday, to: sunday });
   const homework = data?.homework ?? [];
+  const logsQ = useLessonLogs(classId, { from: monday, to: sunday });
+  const logs = new Map((logsQ.data?.logs ?? []).map((log) => [`${log.date}:${log.period}`, log]));
 
-  const [ed, setEd] = useState<{ open: boolean; subjectId?: string | null; date?: string; editing?: Homework | null }>({ open: false });
+  const [ed, setEd] = useState<{
+    open: boolean;
+    subjectId?: string | null;
+    date?: string;
+    editing?: Homework | null;
+    source?: { date: string; period: number; subjectId: string | null };
+  }>({ open: false });
 
   // Which weekday columns to show: Mon–Fri, plus any used weekend days.
   const usedDays = useMemo(() => {
@@ -80,23 +89,36 @@ export default function WeekPage() {
                 {lessons.map((lesson) => {
                   const color = lesson.color || subjectColor(lesson.subject_id ?? null);
                   const count = lesson.subject_id ? dayHw.filter((h) => h.subject?.id === lesson.subject_id).length : 0;
+                  const log = logs.get(`${date}:${lesson.period}`);
                   return (
-                    <button
+                    <div
                       key={lesson.id ?? `${d}-${lesson.period}`}
-                      onClick={() => setEd({ open: true, date, subjectId: lesson.subject_id ?? null })}
-                      className="group flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:border-line hover:bg-surface2"
+                      className="group flex w-full items-center gap-1 rounded-lg border border-transparent py-1.5 text-left hover:border-line hover:bg-surface2"
                     >
+                      <button
+                        className="flex min-w-0 flex-1 items-center gap-2 px-1 text-left"
+                        title={m.week_add()}
+                        onClick={() => setEd({
+                          open: true,
+                          date,
+                          subjectId: lesson.subject_id ?? null,
+                          source: { date, period: lesson.period, subjectId: lesson.subject_id ?? null },
+                        })}
+                      >
                       <span className="w-4 shrink-0 text-center font-mono text-[11px] text-muted tnum">{lesson.period}</span>
                       <span className="h-6 w-1 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium leading-tight text-ink">{lesson.subject}</span>
                         <span className="block font-mono text-[10px] text-muted">{lesson.start}–{lesson.end}</span>
+                        <span className="block text-[10px] text-primary truncate">{log?.logger ? m.lesson_logged_by({ name: log.logger.name }) : ''}</span>
                       </span>
                       {count > 0 && (
                         <span className="grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">{count}</span>
                       )}
                       <Plus className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
-                    </button>
+                      </button>
+                      <LessonLogButton date={date} lesson={lesson} log={log} compact loading={logsQ.isLoading} />
+                    </div>
                   );
                 })}
               </div>
@@ -114,6 +136,7 @@ export default function WeekPage() {
         editing={ed.editing}
         defaultDate={ed.date}
         defaultSubjectId={ed.subjectId}
+        sourceLesson={ed.source}
         canPost={canPost}
         maxMb={detail.class.features?.upload_mb ?? config?.maxUploadMb ?? 25}
       />

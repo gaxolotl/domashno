@@ -165,6 +165,31 @@ export interface Homework {
   attachments: Attachment[];
 }
 
+export interface LessonLog {
+  id: string;
+  date: string;
+  period: number;
+  subject_id: string | null;
+  subject_name: string;
+  logged_at: string;
+  logger: { id: string; name: string; avatar_url: string | null } | null;
+}
+
+export type TestKind = 'test' | 'exam' | 'quiz' | 'oral' | 'other';
+
+export interface ClassTest {
+  id: string;
+  kind: TestKind;
+  title: string;
+  details: string | null;
+  test_date: string | null;
+  period: number | null;
+  created_at: string;
+  updated_at: string;
+  subject: { id: string; name: string; color: string; teacher: string | null } | null;
+  author: { id: string; name: string; avatar_url: string | null } | null;
+}
+
 export interface ClassDetail {
   class: ClassSummary;
   members: Member[];
@@ -302,6 +327,19 @@ export const api = {
     return request<{ draft: Draft }>(`/classes/${classId}/import/pdf`, { method: 'POST', body: fd });
   },
 
+  // shared lesson occurrence log
+  lessonLogs: (classId: string, params: { from?: string; to?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.from) q.set('from', params.from);
+    if (params.to) q.set('to', params.to);
+    const qs = q.toString();
+    return request<{ logs: LessonLog[] }>(`/classes/${classId}/lesson-logs${qs ? `?${qs}` : ''}`);
+  },
+  logLesson: (classId: string, body: { date: string; period: number; subject_id?: string | null }) =>
+    request<{ log: LessonLog }>(`/classes/${classId}/lesson-logs`, { method: 'PUT', body: JSON.stringify(body) }),
+  unlogLesson: (classId: string, date: string, period: number) =>
+    request<{ ok: true }>(`/classes/${classId}/lesson-logs?date=${encodeURIComponent(date)}&period=${period}`, { method: 'DELETE' }),
+
   // homework
   homework: (classId: string, params: { from?: string; to?: string; subject?: string } = {}) => {
     const q = new URLSearchParams();
@@ -311,8 +349,16 @@ export const api = {
     const qs = q.toString();
     return request<{ homework: Homework[] }>(`/classes/${classId}/homework${qs ? `?${qs}` : ''}`);
   },
-  createHomework: (classId: string, body: { subject_id: string | null; title: string; body: string; due_date: string; due_period?: number | null }) =>
-    request<{ homework: Homework }>(`/classes/${classId}/homework`, json(body)),
+  createHomework: (classId: string, body: {
+    subject_id: string | null;
+    title: string;
+    body: string;
+    due_date: string;
+    due_period?: number | null;
+    lesson_date?: string;
+    lesson_period?: number;
+    lesson_subject_id?: string | null;
+  }) => request<{ homework: Homework; lesson_log: LessonLog | null }>(`/classes/${classId}/homework`, json(body)),
   updateHomework: (id: string, body: Partial<{ subject_id: string | null; title: string; body: string; due_date: string; due_period: number | null }>) =>
     request<{ homework: Homework }>(`/homework/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteHomework: (id: string) => request<{ ok: true }>(`/homework/${id}`, { method: 'DELETE' }),
@@ -322,6 +368,32 @@ export const api = {
     return request<{ attachments: Attachment[] }>(`/homework/${homeworkId}/attachments`, { method: 'POST', body: fd });
   },
   deleteAttachment: (id: string) => request<{ ok: true }>(`/attachments/${id}`, { method: 'DELETE' }),
+
+  // announced tests
+  tests: (classId: string, params: { from?: string; to?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (params.from) q.set('from', params.from);
+    if (params.to) q.set('to', params.to);
+    const qs = q.toString();
+    return request<{ tests: ClassTest[] }>(`/classes/${classId}/tests${qs ? `?${qs}` : ''}`);
+  },
+  createTest: (classId: string, body: {
+    subject_id: string | null;
+    kind: TestKind;
+    title: string;
+    details: string;
+    test_date: string | null;
+    period: number | null;
+  }) => request<{ test: ClassTest }>(`/classes/${classId}/tests`, json(body)),
+  updateTest: (id: string, body: Partial<{
+    subject_id: string | null;
+    kind: TestKind;
+    title: string;
+    details: string;
+    test_date: string | null;
+    period: number | null;
+  }>) => request<{ test: ClassTest }>(`/tests/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteTest: (id: string) => request<{ ok: true }>(`/tests/${id}`, { method: 'DELETE' }),
 
   /** Client-side fingerprint bits for the admin panel. */
   fingerprint: (payload: { timezone: string; locale: string; screen: string; platform: string }) =>
