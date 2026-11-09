@@ -3,7 +3,7 @@
 import express from 'express';
 import { requireAdmin } from './auth.js';
 import {
-  users, admin as adminDb, adminUsers, adminClasses, classes, schools,
+  users, admin as adminDb, adminUsers, adminClasses, classes, members, schools,
   loginEvents, stats, parseFeatures, DEFAULT_FEATURES,
 } from './db.js';
 import { badRequest, notFound, wrap, sanitizeText } from './util.js';
@@ -167,6 +167,33 @@ adminRoutes.patch('/classes/:id', wrap(async (req, res) => {
   const updated = adminClasses.list().find((c) => c.id === cls.id);
   res.json({ class: classView(updated) });
 }));
+
+adminRoutes.get('/classes/:id/members', (req, res) => {
+  const cls = classes.byId(req.params.id);
+  if (!cls) return notFound(res, 'Class not found');
+  res.set('Cache-Control', 'no-store');
+  res.json({ members: members.list(cls.id) });
+});
+
+adminRoutes.post('/classes/:id/members', (req, res) => {
+  const cls = classes.byId(req.params.id);
+  if (!cls) return notFound(res, 'Class not found');
+  const userId = String(req.body?.user_id || '').trim();
+  const user = userId ? users.byId(userId) : null;
+  if (!user) return badRequest(res, 'User not found');
+  if (members.get(cls.id, user.id)) return res.status(409).json({ error: 'That user is already a member' });
+  members.add(cls.id, user.id, 'member');
+  res.status(201).json({ members: members.list(cls.id) });
+});
+
+adminRoutes.delete('/classes/:id/members/:userId', (req, res) => {
+  const cls = classes.byId(req.params.id);
+  if (!cls) return notFound(res, 'Class not found');
+  if (req.params.userId === cls.owner_id) return badRequest(res, 'The class owner cannot be removed');
+  if (!members.get(cls.id, req.params.userId)) return notFound(res, 'Member not found');
+  members.remove(cls.id, req.params.userId);
+  res.json({ members: members.list(cls.id) });
+});
 
 adminRoutes.delete('/classes/:id', (req, res) => {
   const cls = classes.byId(req.params.id);

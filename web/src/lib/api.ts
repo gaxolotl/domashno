@@ -70,6 +70,15 @@ export interface AdminClass {
   school: { id: string; name: string } | null;
 }
 
+export interface AdminClassMember {
+  id: string;
+  name: string;
+  email: string | null;
+  avatar_url: string | null;
+  role: 'owner' | 'member';
+  joined_at: string;
+}
+
 export interface School {
   id: string;
   name: string;
@@ -421,6 +430,12 @@ export const api = {
   adminUpdateClass: (id: string, patch: Partial<{ name: string; post_policy: 'everyone' | 'restricted'; new_invite: boolean; features: Partial<ClassFeatures>; school: string | null }>) =>
     request<{ class: AdminClass }>(`/admin/classes/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   adminDeleteClass: (id: string) => request<{ ok: true }>(`/admin/classes/${id}`, { method: 'DELETE' }),
+  adminClassMembers: (id: string) =>
+    request<{ members: AdminClassMember[] }>(`/admin/classes/${id}/members`),
+  adminAddClassMember: (id: string, userId: string) =>
+    request<{ members: AdminClassMember[] }>(`/admin/classes/${id}/members`, json({ user_id: userId })),
+  adminRemoveClassMember: (id: string, userId: string) =>
+    request<{ members: AdminClassMember[] }>(`/admin/classes/${id}/members/${userId}`, { method: 'DELETE' }),
   adminSchools: () => request<{ schools: School[] }>('/admin/schools'),
   adminCreateSchool: (name: string, domain?: string) => request<{ school: School }>('/admin/schools', json({ name, domain })),
   adminUpdateSchool: (id: string, patch: { name?: string; domain?: string | null }) =>

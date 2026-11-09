@@ -21,7 +21,7 @@
     "start": "npm --workspace server run start",
     "setup": "npm install && npm run build",
     "audit": "npm audit --audit-level=low",
-    "test:security": "node scripts/test-dependency-security.mjs && node server/scripts/test-class-features.mjs && node server/scripts/test-upload-security.mjs"
+    "test:security": "node scripts/test-dependency-security.mjs && node server/scripts/test-class-features.mjs && node server/scripts/test-admin-members.mjs && node server/scripts/test-upload-security.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

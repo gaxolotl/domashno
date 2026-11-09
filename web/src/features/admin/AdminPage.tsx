@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeft, Ban, Check, Fingerprint, LayoutList, ListChecks, RefreshCw, Search, ShieldCheck, Trash2, Users as UsersIcon,
+  ArrowLeft, Ban, Check, Fingerprint, LayoutList, ListChecks, RefreshCw, Search, ShieldCheck, Trash2, UserMinus, UserPlus, Users as UsersIcon,
 } from 'lucide-react';
 import {
   Avatar, Badge, Button, Card, Field, Input, Modal, PageLoader, PageSkeleton, Segmented, Select, cn, useToast,
 } from '../../components/ui';
 import { LanguageControl, ThemeControl } from '../../components/Controls';
-import { api, type AdminClass, type ClassFeatures, type LoginEvent } from '../../lib/api';
+import { api, type AdminClass, type AdminClassMember, type ClassFeatures, type LoginEvent } from '../../lib/api';
 import { useMe } from '../../lib/hooks';
 import { humanSize } from '../../lib/dates';
 import { getLocale } from '../../paraglide/runtime';
@@ -427,6 +427,106 @@ function ClassesTab() {
   );
 }
 
+function ClassMembers({ classId }: { classId: string }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [q, setQ] = useState('');
+
+  const membersQ = useQuery({
+    queryKey: ['admin', 'class-members', classId],
+    queryFn: () => api.adminClassMembers(classId),
+  });
+  const searchQ = useQuery({
+    queryKey: ['admin', 'user-search', q],
+    queryFn: () => api.adminUsers({ q: q.trim(), limit: 8 }),
+    enabled: q.trim().length >= 2,
+  });
+
+  const memberList: AdminClassMember[] = membersQ.data?.members ?? [];
+  const memberIds = new Set(memberList.map((mem) => mem.id));
+  const results = (searchQ.data?.users ?? []).filter((u) => !memberIds.has(u.id));
+  const showResults = q.trim().length >= 2;
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['admin'] });
+  const addMember = useMutation({
+    mutationFn: (userId: string) => api.adminAddClassMember(classId, userId),
+    onSuccess: () => { refresh(); setQ(''); toast.push(m.admin_member_added(), 'success'); },
+    onError: (e: Error) => toast.push(e.message, 'error'),
+  });
+  const removeMember = useMutation({
+    mutationFn: (userId: string) => api.adminRemoveClassMember(classId, userId),
+    onSuccess: () => { refresh(); toast.push(m.admin_member_removed(), 'success'); },
+    onError: (e: Error) => toast.push(e.message, 'error'),
+  });
+
+  return (
+    <div className="space-y-2 rounded-xl border border-line p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-medium text-muted">{m.set_members()}</p>
+        <span className="text-xs text-muted tnum">{memberList.length}</span>
+      </div>
+      <p className="text-xs text-muted">{m.admin_members_hint()}</p>
+
+      {membersQ.isLoading ? <PageSkeleton /> : (
+        <ul className="space-y-1">
+          {memberList.map((mem) => (
+            <li key={mem.id} className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5">
+              <Avatar name={mem.name} src={mem.avatar_url} size={26} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm text-ink">{mem.name}</span>
+                <span className="block truncate text-xs text-muted">{mem.email ?? '—'}</span>
+              </span>
+              {mem.role === 'owner' && <Badge className="bg-accent/25 text-accent-ink">{m.admin_owner()}</Badge>}
+              {mem.role !== 'owner' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={m.set_remove_member()}
+                  title={m.set_remove_member()}
+                  loading={removeMember.isPending && removeMember.variables === mem.id}
+                  onClick={() => confirm(m.set_remove_member_confirm()) && removeMember.mutate(mem.id)}
+                >
+                  <UserMinus className="h-4 w-4" />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={m.admin_member_search()} className="pl-9" />
+      </div>
+
+      {showResults && (
+        <div className="divide-y divide-line overflow-hidden rounded-lg border border-line">
+          {searchQ.isLoading ? (
+            <p className="px-3 py-2 text-xs text-muted">{m.common_loading()}</p>
+          ) : results.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted">{m.admin_no_member_results()}</p>
+          ) : results.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              disabled={addMember.isPending}
+              onClick={() => addMember.mutate(u.id)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface2 disabled:opacity-60"
+            >
+              <Avatar name={u.name} src={u.avatar_url} size={26} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm text-ink">{u.name}</span>
+                <span className="block truncate text-xs text-muted">{u.email ?? '—'}</span>
+              </span>
+              <UserPlus className="h-4 w-4 shrink-0 text-muted" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClassModal({ id, onClose }: { id: string; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -503,6 +603,8 @@ function ClassModal({ id, onClose }: { id: string; onClose: () => void }) {
               <span className="min-w-0 flex-1 truncate">{cls.owner_name} · {cls.owner_email}</span>
             </div>
           </Field>
+
+          <ClassMembers classId={cls.id} />
 
           <Field label={m.admin_policy()}>
             <Select value={policy} onChange={(e) => setPolicy(e.target.value as 'everyone' | 'restricted')}>
